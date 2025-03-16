@@ -1,4 +1,0 @@
-networkx==3.1
-pymongo==4.5.0
-regraph==2.0.1
-pytest==7.3.1
