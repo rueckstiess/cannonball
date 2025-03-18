@@ -1,16 +1,9 @@
 from .nodes import Node
-from .utils import get_raw_text_from_listtem, walk_list_items, extract_node_marker_and_refs
+from .utils import get_raw_text_from_listtem, walk_list_items, extract_node_marker_and_refs, EdgeType
 import networkx as nx
 from marko import Markdown
 from typing import Dict, Optional, List
 import uuid
-import re
-from enum import Enum
-
-
-class EdgeType(Enum):
-    REQUIRES = "requires"
-    REFERENCES = "references"
 
 
 class GraphMgr:
@@ -172,135 +165,6 @@ class GraphMgr:
             "nodes": [self.nxgraph.nodes[n] for n in self.nxgraph.nodes()],
             "edges": [{"source": s, "target": t, **d} for s, t, d in self.nxgraph.edges(data=True)],
         }
-
-    def find_paths(self, source: str, target: str) -> List[List[str]]:
-        """Find all paths from source to target.
-
-        Args:
-            source: Source node ID.
-            target: Target node ID.
-
-        Returns:
-            List of paths, where each path is a list of node IDs.
-        """
-        if source not in self.nxgraph or target not in self.nxgraph:
-            return []
-
-        try:
-            return list(nx.all_simple_paths(self.nxgraph, source, target))
-        except nx.NetworkXNoPath:
-            return []
-
-    def find_path(self, source: str, target: str) -> Optional[List[str]]:
-        """Find a path from source to target.
-
-        Args:
-            source: Source node ID.
-            target: Target node ID.
-
-        Returns:
-            A path as a list of node IDs, or None if no path exists.
-        """
-        paths = self.find_paths(source, target)
-        return paths[0] if paths else None
-
-    def has_blocking_descendants(self, node_id: str) -> bool:
-        """Check if a node has any blocking descendants.
-
-        Args:
-            node_id: The ID of the node to check.
-
-        Returns:
-            True if the node has blocking descendants, False otherwise.
-        """
-        if node_id not in self.nxgraph:
-            return False
-
-        # Get the descendants subgraph
-        descendants_subgraph = self.get_descendants_subgraph(node_id)
-
-        # Check if any descendant is blocking
-        for desc_node_id in descendants_subgraph.nxgraph.nodes():
-            node_attrs = self.get_node_attributes(desc_node_id)
-            if node_attrs.get("is_blocking", False):
-                return True
-
-        return False
-
-    def get_subgraph_by_edge_type(self, edge_type: EdgeType | str) -> "GraphMgr":
-        """Get a subgraph containing only edges of the specified type.
-
-        Args:
-            edge_type: The type of edges to include in the subgraph.
-
-        Returns:
-            A new GraphMgr instance containing the subgraph.
-        """
-        instance = GraphMgr()
-
-        if isinstance(edge_type, str):
-            edge_type = EdgeType(edge_type)
-
-        # Add nodes
-        for node_id in self.nxgraph.nodes():
-            node_attrs = self.get_node_attributes(node_id)
-            node = Node(**node_attrs)
-            instance.add_node(node)
-
-        # Add edges of the specified type
-        for source, target, data in self.nxgraph.edges(data=True):
-            if data.get("type") == edge_type.value:
-                instance.add_edge(source, target, edge_type=edge_type)
-
-        return instance
-
-    def get_subgraph(self, node_ids: List[str]) -> "GraphMgr":
-        """Get a subgraph containing only the specified nodes.
-
-        Args:
-            node_ids: List of node IDs to include in the subgraph.
-
-        Returns:
-            A new GraphMgr instance containing the subgraph.
-        """
-        instance = GraphMgr()
-
-        # Add nodes
-        for node_id in node_ids:
-            if node_id in self.nxgraph:
-                node_attrs = self.get_node_attributes(node_id)
-                node = Node(
-                    id=node_attrs["id"], name=node_attrs["name"], marker=node_attrs["marker"], ref=node_attrs.get("ref")
-                )
-                instance.add_node(node)
-
-        # Add edges
-        for source, target in self.nxgraph.edges():
-            if source in node_ids and target in node_ids:
-                instance.add_edge(source, target)
-
-        return instance
-
-    def get_descendants_subgraph(self, node_id: str) -> "GraphMgr":
-        """Create a subgraph containing the specified node and all its descendants.
-
-        Args:
-            node_id: The ID of the root node to start from.
-
-        Returns:
-            A new GraphMgr instance containing the node and all its descendants.
-        """
-        if node_id not in self.nxgraph:
-            return GraphMgr()  # Return empty graph if node doesn't exist
-
-        # Use NetworkX's built-in bfs_tree to get a tree of all descendants
-        descendants_tree = nx.bfs_tree(self.nxgraph, node_id)
-
-        # Get the node IDs from the tree
-        node_ids = list(descendants_tree.nodes())
-
-        # Create a subgraph with the descendants
-        return self.get_subgraph(node_ids)
 
     def to_markdown(self, root_nodes: Optional[List[str]] = None, indent: int | str = 2) -> str:
         """Convert the graph back to a markdown string with hierarchical list items.

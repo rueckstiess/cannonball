@@ -8,7 +8,12 @@ from cannonball.utils import (
     get_raw_text_from_listtem,
     walk_list_items,
     print_ast,
+    EdgeType,
+    get_subgraph,
 )
+
+import networkx as nx
+import unittest
 
 
 class TestExtractNodeMarkerAndRef:
@@ -349,3 +354,122 @@ class TestPrintAst:
             assert output[0] == "- Item 1"
             assert output[1] == "\t- Nested Item"
             assert output[2] == "- Item 2"
+
+
+class TestGetSubgraph(unittest.TestCase):
+    def setUp(self):
+        # Create a test graph for all tests
+        graph = nx.DiGraph()
+        graph.add_nodes_from(["n1", "n2", "n3", "n4", "n5", "n6"])
+        graph.add_edges_from(
+            [
+                ("n1", "n2", {"type": "requires"}),
+                ("n2", "n3", {"type": "requires"}),
+                ("n3", "n4", {"type": "requires"}),
+            ]
+        )
+        graph.add_edges_from(
+            [
+                ("n1", "n3", {"type": "references"}),
+                ("n2", "n5", {"type": "references"}),
+                ("n3", "n6", {"type": "references"}),
+            ]
+        )
+        self.graph = graph
+
+    def test_get_full_subgraph(self):
+        # Test with no filters (should return the full graph)
+        subgraph = get_subgraph(self.graph)
+        self.assertEqual(len(subgraph.nodes), 6)
+        self.assertEqual(len(subgraph.edges), 6)
+
+    def test_get_subgraph_by_root(self):
+        # Test with just a root node filter
+        subgraph = get_subgraph(self.graph, root_node="n1")
+        # n1 + all descendants considering all edge types
+        self.assertEqual(len(subgraph.nodes), 6)
+        self.assertTrue("n1" in subgraph.nodes)
+        self.assertTrue("n2" in subgraph.nodes)
+        self.assertTrue("n3" in subgraph.nodes)
+        self.assertTrue("n4" in subgraph.nodes)
+        self.assertTrue("n5" in subgraph.nodes)
+        self.assertTrue("n6" in subgraph.nodes)
+
+        # Test with a different root node
+        subgraph = get_subgraph(self.graph, root_node="n2")
+        # n2 + its descendants (n3,n4,n5,n6)
+        self.assertEqual(len(subgraph.nodes), 5)
+        self.assertTrue("n1" not in subgraph.nodes)
+        self.assertTrue("n2" in subgraph.nodes)
+        self.assertTrue("n3" in subgraph.nodes)
+        self.assertTrue("n4" in subgraph.nodes)
+        self.assertTrue("n5" in subgraph.nodes)
+        self.assertTrue("n6" in subgraph.nodes)
+
+        # Test with a leaf node
+        subgraph = get_subgraph(self.graph, root_node="n6")
+        self.assertEqual(len(subgraph.nodes), 1)  # Just n6
+        self.assertTrue("n6" in subgraph.nodes)
+
+    def test_get_subgraph_by_edge_type(self):
+        # Test filtering by REQUIRES edges
+        subgraph = get_subgraph(self.graph, edge_type=EdgeType.REQUIRES)
+        self.assertEqual(len(subgraph.nodes), 4)  # n1, n2, n3, n4
+        self.assertEqual(len(subgraph.edges), 3)  # n1->n2, n2->n3, n3->n4
+
+        # Test filtering by REFERENCES edges
+        subgraph = get_subgraph(self.graph, edge_type=EdgeType.REFERENCES)
+        self.assertEqual(len(subgraph.nodes), 5)  # n1, n2, n3, n5, n6
+        self.assertEqual(len(subgraph.edges), 3)  # n1->n3, n2->n5, n3->n6
+
+    def test_get_subgraph_combined_filters(self):
+        # Test with both root node and edge type filters
+        subgraph = get_subgraph(self.graph, root_node="n2", edge_type=EdgeType.REQUIRES)
+        # When we filter by REQUIRES from n2, we should only get n2->n3->n4
+        self.assertEqual(len(subgraph.nodes), 3)  # n2, n3, n4
+        self.assertEqual(len(subgraph.edges), 2)  # n2->n3, n3->n4
+
+        # Another combined test - n1 with REFERENCES edges only includes n1->n3
+        subgraph = get_subgraph(self.graph, root_node="n1", edge_type=EdgeType.REFERENCES)
+        self.assertEqual(len(subgraph.nodes), 3)  # n1, n3, n6
+        self.assertEqual(len(subgraph.edges), 2)  # n1->n3->n6
+
+        # Test with n3 as root and REFERENCES edges
+        subgraph = get_subgraph(self.graph, root_node="n3", edge_type=EdgeType.REFERENCES)
+        self.assertEqual(len(subgraph.nodes), 2)  # n3, n6
+        self.assertEqual(len(subgraph.edges), 1)  # n3->n6
+
+    def test_edge_cases(self):
+        # Test with non-existent root node
+        subgraph = get_subgraph(self.graph, root_node="non_existent")
+        self.assertEqual(len(subgraph.nodes), 0)
+
+        # Test with empty graph
+        graph = nx.DiGraph()
+        subgraph = get_subgraph(graph, root_node="n1")
+        self.assertEqual(len(subgraph.nodes), 0)
+
+        # Test with graph containing cycles (needs allow_cycles=True)
+        cyclic_graph = nx.DiGraph()
+        cyclic_graph.add_nodes_from(["c1", "c2", "c3"])
+        cyclic_graph.add_edges_from([("c1", "c2"), ("c2", "c3"), ("c3", "c1")])
+
+        subgraph = get_subgraph(cyclic_graph, root_node="c1")
+        self.assertEqual(len(subgraph.nodes), 3)
+        self.assertEqual(len(subgraph.edges), 3)
+
+    def test_disconnected_components(self):
+        # Create a graph with disconnected components
+
+        disconn_graph = nx.DiGraph()
+        disconn_graph.add_nodes_from(["d1", "d2", "e1", "e2"])
+        disconn_graph.add_edges_from([("d1", "d2", {"type": "requires"})])
+        disconn_graph.add_edges_from([("e1", "e2", {"type": "requires"})])
+
+        # Test getting subgraph from one component
+        subgraph = get_subgraph(disconn_graph, root_node="d1")
+        self.assertEqual(len(subgraph.nodes), 2)
+        self.assertTrue("d1" in subgraph.nodes)
+        self.assertTrue("d2" in subgraph.nodes)
+        self.assertTrue("e1" not in subgraph.nodes)
+        self.assertTrue("e2" not in subgraph.nodes)

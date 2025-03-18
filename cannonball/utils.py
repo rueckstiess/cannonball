@@ -3,8 +3,54 @@ from marko.element import Element
 from marko.md_renderer import MarkdownRenderer
 from typing import Optional, Callable, Tuple, List
 import re
+import networkx as nx
+from enum import Enum
 
 renderer = MarkdownRenderer()
+
+
+class EdgeType(Enum):
+    REQUIRES = "requires"
+    REFERENCES = "references"
+
+
+def get_subgraph(
+    graph: nx.DiGraph, root_node: Optional[str] = None, edge_type: Optional[EdgeType] = None
+) -> nx.DiGraph:
+    """Get a subgraph based on root node and/or edge type.
+
+    Args:
+        root_node: Optional root node ID. If provided, only include descendants of this node.
+        edge_type: Optional edge type. If provided, only include edges of this type.
+
+    Returns:
+        A directed graph representing the requested subgraph.
+    """
+    # Start with the full graph
+
+    if not graph.nodes:
+        return graph
+
+    # Filter by edge type if specified
+    if edge_type is not None:
+        # Create a subgraph with only the edges of the specified type
+        edges = [(u, v) for u, v, data in graph.edges(data=True) if data.get("type") == edge_type.value]
+        graph = graph.edge_subgraph(edges)
+
+    if root_node is not None:
+        if root_node in graph:
+            # Get all descendants of the root node using the filtered graph
+            # This ensures we only include descendants reachable via the specified edge type
+            descendants = list(nx.descendants(graph, root_node))
+            # Include the root node itself
+            nodes = [root_node] + descendants
+            # Create a subgraph with only these nodes
+            graph = graph.subgraph(nodes)
+        else:
+            # If the root node is not in the graph, return an empty graph
+            return nx.DiGraph()
+
+    return graph
 
 
 def get_raw_text_from_listtem(li: ListItem) -> Optional[str]:

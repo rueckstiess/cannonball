@@ -1,8 +1,8 @@
 import pytest
-from cannonball.graph import GraphMgr
+from cannonball.graph import GraphMgr, EdgeType
 from cannonball.nodes import Node
 import networkx as nx
-from unittest.mock import patch
+import unittest
 
 # Sample markdown string with hierarchical structure for testing
 SAMPLE_MARKDOWN = """
@@ -203,21 +203,6 @@ class TestGraphMgr:
         # Node 1 must come before Node 3
         assert sorted_nodes.index("1") < sorted_nodes.index("3")
 
-    def test_find_paths(self):
-        """Test finding paths in the graph."""
-        graph_mgr = GraphMgr.from_markdown(SAMPLE_MARKDOWN)
-
-        feature_id = graph_mgr.get_node_by_ref("feature3")
-        alt2_id = graph_mgr.get_node_by_ref("alt2")
-
-        paths = graph_mgr.find_paths(feature_id, alt2_id)
-        assert len(paths) > 0
-
-        # There should be a path from feature to alt2 through q1
-        q1_id = graph_mgr.get_node_by_ref("q1")
-        has_expected_path = any(path for path in paths if q1_id in path)
-        assert has_expected_path
-
     def test_get_roots_and_leaves(self):
         """Test getting roots and leaves of the graph."""
         graph_mgr = GraphMgr.from_markdown(SAMPLE_MARKDOWN)
@@ -237,28 +222,6 @@ class TestGraphMgr:
         for leaf in leaves:
             assert graph_mgr.nxgraph.out_degree(leaf) == 0
 
-    def test_get_subgraph(self):
-        """Test creating a subgraph."""
-        graph_mgr = GraphMgr.from_markdown(SAMPLE_MARKDOWN)
-
-        feature_id = graph_mgr.get_node_by_ref("feature3")
-        q1_id = graph_mgr.get_node_by_ref("q1")
-        alt1_id = graph_mgr.get_node_by_ref("alt1")
-
-        # Create a subgraph with just these three nodes
-        subgraph = graph_mgr.get_subgraph([feature_id, q1_id, alt1_id])
-
-        # Check subgraph nodes
-        assert len(subgraph.nxgraph.nodes) == 3
-        assert feature_id in subgraph.nxgraph.nodes
-        assert q1_id in subgraph.nxgraph.nodes
-        assert alt1_id in subgraph.nxgraph.nodes
-
-        # Check edges - should have feature->q1 and q1->alt1
-        assert (feature_id, q1_id) in subgraph.nxgraph.edges
-        assert (q1_id, alt1_id) in subgraph.nxgraph.edges
-        assert len(subgraph.nxgraph.edges) == 2
-
     def test_to_dict(self):
         """Test converting graph to a dictionary."""
         graph_mgr = GraphMgr()
@@ -275,28 +238,6 @@ class TestGraphMgr:
         assert len(graph_dict["edges"]) == 1
         assert graph_dict["edges"][0]["source"] == "1"
         assert graph_dict["edges"][0]["target"] == "2"
-
-    def test_find_path_no_path(self):
-        """Test finding path when no path exists."""
-        graph_mgr = GraphMgr()
-        node1 = Node(id="1", name="Node 1", marker="1")
-        node2 = Node(id="2", name="Node 2", marker="2")
-
-        graph_mgr.add_node(node1)
-        graph_mgr.add_node(node2)
-        # No edge between nodes
-
-        # Test find_paths when no path exists
-        paths = graph_mgr.find_paths("1", "2")
-        assert len(paths) == 0
-
-        # Test find_path when no path exists
-        path = graph_mgr.find_path("1", "2")
-        assert path is None
-
-        # Test with nonexistent node
-        assert graph_mgr.find_paths("1", "nonexistent") == []
-        assert graph_mgr.find_path("1", "nonexistent") is None
 
     def test_cyclic_topological_sort(self):
         """Test topological sort on cyclic graph raises ValueError."""
@@ -342,128 +283,6 @@ class TestGraphMgr:
         assert ref1_id != ref2_id
         assert ref1_id != ref3_id
         assert ref2_id != ref3_id
-
-    def test_find_paths_networkx_no_path(self):
-        """Test handling of NetworkXNoPath exception in find_paths."""
-        graph_mgr = GraphMgr()
-        node1 = Node(id="1", name="Node 1", marker="1")
-        node2 = Node(id="2", name="Node 2", marker="2")
-
-        graph_mgr.add_node(node1)
-        graph_mgr.add_node(node2)
-
-        # Mock nx.all_simple_paths to raise NetworkXNoPath
-        with patch("networkx.all_simple_paths") as mock_paths:
-            mock_paths.side_effect = nx.NetworkXNoPath("No path between nodes")
-
-            # This should handle the exception and return an empty list
-            paths = graph_mgr.find_paths("1", "2")
-            assert paths == []
-
-    def test_get_descendants_subgraph(self):
-        """Test creating a subgraph with a node and all its descendants."""
-        # Create a graph with a tree structure
-        graph_mgr = GraphMgr()
-
-        # Root node
-        root = Node(id="root", name="Root Node", marker="R")
-
-        # Level 1 children
-        child1 = Node(id="child1", name="Child 1", marker="C1")
-        child2 = Node(id="child2", name="Child 2", marker="C2")
-
-        # Level 2 children (grandchildren of root)
-        grandchild1 = Node(id="grandchild1", name="Grandchild 1", marker="G1")
-        grandchild2 = Node(id="grandchild2", name="Grandchild 2", marker="G2")
-
-        # Add all nodes
-        graph_mgr.add_node(root)
-        graph_mgr.add_node(child1)
-        graph_mgr.add_node(child2)
-        graph_mgr.add_node(grandchild1)
-        graph_mgr.add_node(grandchild2)
-
-        # Create the tree structure
-        graph_mgr.add_edge("root", "child1")
-        graph_mgr.add_edge("root", "child2")
-        graph_mgr.add_edge("child1", "grandchild1")
-        graph_mgr.add_edge("child2", "grandchild2")
-
-        # Get descendants subgraph starting from root
-        root_descendants = graph_mgr.get_descendants_subgraph("root")
-
-        # Should include all nodes
-        assert len(root_descendants.nxgraph.nodes) == 5
-        assert "root" in root_descendants.nxgraph.nodes
-        assert "child1" in root_descendants.nxgraph.nodes
-        assert "child2" in root_descendants.nxgraph.nodes
-        assert "grandchild1" in root_descendants.nxgraph.nodes
-        assert "grandchild2" in root_descendants.nxgraph.nodes
-
-        # Get descendants subgraph starting from child1
-        child1_descendants = graph_mgr.get_descendants_subgraph("child1")
-
-        # Should include only child1 and its descendant
-        assert len(child1_descendants.nxgraph.nodes) == 2
-        assert "child1" in child1_descendants.nxgraph.nodes
-        assert "grandchild1" in child1_descendants.nxgraph.nodes
-        assert "root" not in child1_descendants.nxgraph.nodes  # Parent is excluded
-        assert "child2" not in child1_descendants.nxgraph.nodes  # Sibling is excluded
-        assert "grandchild2" not in child1_descendants.nxgraph.nodes  # Cousin is excluded
-
-        # Check edges in the child1 descendants subgraph
-        assert ("child1", "grandchild1") in child1_descendants.nxgraph.edges
-
-    def test_get_descendants_subgraph_nonexistent_node(self):
-        """Test getting descendants subgraph for a nonexistent node."""
-        graph_mgr = GraphMgr()
-        node = Node(id="node", name="Node", marker="N")
-        graph_mgr.add_node(node)
-
-        # Try to get descendants for a node that doesn't exist
-        result = graph_mgr.get_descendants_subgraph("nonexistent")
-
-        # Should return empty graph
-        assert len(result.nxgraph.nodes) == 0
-        assert len(result.nxgraph.edges) == 0
-
-    def test_get_descendants_subgraph_leaf_node(self):
-        """Test getting descendants subgraph for a leaf node."""
-        graph_mgr = GraphMgr()
-
-        # Create a simple parent-child structure
-        parent = Node(id="parent", name="Parent", marker="P")
-        child = Node(id="child", name="Child", marker="C")
-
-        graph_mgr.add_node(parent)
-        graph_mgr.add_node(child)
-        graph_mgr.add_edge("parent", "child")
-
-        # Get descendants of the leaf node (which has no descendants)
-        leaf_descendants = graph_mgr.get_descendants_subgraph("child")
-
-        # Should contain only the leaf node itself
-        assert len(leaf_descendants.nxgraph.nodes) == 1
-        assert "child" in leaf_descendants.nxgraph.nodes
-        assert len(leaf_descendants.nxgraph.edges) == 0
-
-    def test_get_descendants_subgraph_complex(self):
-        """Test descendants subgraph on a complex markdown structure."""
-        graph_mgr = GraphMgr.from_markdown(SAMPLE_MARKDOWN)
-
-        # Get a node by reference
-        q1_id = graph_mgr.get_node_by_ref("q1")  # The question node
-
-        # Get descendants of the question node
-        q_descendants = graph_mgr.get_descendants_subgraph(q1_id)
-
-        # Should contain the question and its alternatives
-        assert q1_id in q_descendants.nxgraph.nodes
-        assert graph_mgr.get_node_by_ref("alt1") in q_descendants.nxgraph.nodes
-        assert graph_mgr.get_node_by_ref("alt2") in q_descendants.nxgraph.nodes
-
-        # But should not contain the parent feature node
-        assert graph_mgr.get_node_by_ref("feature3") not in q_descendants.nxgraph.nodes
 
     def test_to_markdown_empty_graph(self):
         """Test converting an empty graph to markdown."""
@@ -1033,3 +852,7 @@ class TestGraphMgr:
 
         # Verify the regenerated graph has nodes
         assert len(new_graph.nxgraph.nodes) > 0, "No nodes in regenerated graph"
+
+
+if __name__ == "__main__":
+    unittest.main()
