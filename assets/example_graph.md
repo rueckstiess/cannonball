@@ -1,0 +1,291 @@
+- [g] I want to create an AI-powered productivity system based on the following concepts:
+	- **DAG**: The system is based on nodes and edges in a directed acyclic graph (DAG). 
+	- **Markdown**: The current state of the DAG can be represented as a hierarchical bullet point list in Markdown format, with some custom additions to define different node types and represent back-linking (which wouldn't be possible with indented lists, as they are equivalent to tree structures)
+	- **Graph rewriting**: Work on any project using this system can be expressed by manipulating the graph: expanding nodes, removing nodes, modifying edges, etc. Special rules ensure that the graph always remains in a valid state. 
+	- **Non-destructive changes**: These graph manipulations need to be non-destructive, i.e. we track the changes to the graph and can roll back to any previous state. 
+	- **Artefacts**: Some nodes produce Artefacts as part of their processing. Artefacts can be of different types, such as Knowledge (e.g. researching something), Code, or changes the the graph structure. For example, when processing a Task with Subtasks, if all the subtasks are done, the Task can be marked as complete, which is a change to the graph. 
+	- **AI assistance**: A special node type indicates that assistance from an AI is requested. The current node, its children and it's parents/siblings are passed as context to the LLM and its output is interpreted as a graph modification to the existing graph (perhaps with appropriate scoping). These changes can be reviewed by a human before being applied. 
+	- [/] Implement a Markdown system based on minimal checkbox styles  ^task-markdown
+		- [ ] Record Meta Observations
+			- [m] This seems more like an ongoing directive than a Task I can tick off. 
+				- Directives could be useful for LLM interaction as well, e.g. 
+					- ["] instruct it to use certain programming styles
+					- ["] use `pytest` instead of `unittest` for test exection
+					- [m] These examples aren't the same as the quoting/escaping behaviour I had in mind. Do we need separate [Quote] and [Example] nodes? Could I just use Thoughts without icons?
+		- [x] Define all node types encountered so far and their behaviour with children elements 
+			- [x] Define Question nodes ^define-question
+			- Questions can be simple yes/no questions
+			- Questions can select from a list of *Alternatives* ("What graphing library should I use?")
+			- More open-ended questions require *Research* or *Tasks* to be completed first (child nodes)
+			- Questions must eventually contain a *Resolution* (the answer, the decision from *Alternatives*)
+			- [Artefact] - [[System Definition v1#Questions]]
+			- [x] Define Artefact nodes
+			- [x] Define Example nodes
+			- [x] Define Task nodes
+				- ["] I'm using the [Artefact] placeholder for now  
+				- [Artefact] - [[System Definition v1#Tasks]]
+			- [x] Define Alternative nodes
+				- Alternatives can appear in questions ("which one to choose?") but also in Tasks where only one of the options needs to be done to unblock the parent task. 
+				- The word option is usually used for one of several options, which would be a good label for the individual options but not for the top-level node that contains the options
+				- [?] Do we need a top-level container for options? Or can options just be sub-items under the question/task? 
+					- [m] Try both styles out here using examples (see [[#^question-example-node]])
+					- [a] Question node contains options directly ^decision-flat-alternatives
+						- ["] Foo
+							- [?] Which graphing library should the frontend use? 
+								- [a] ComfyUI
+								- [a] lightgraph.js
+								- [a] ReactFlow
+						- [p] Looks nice, simpler structure
+						- [c] Implementation less clean
+							- needs special case for collecting all options and in effect grouping them in a virtual top-level node 
+						- [?] Does this always work, or can there be situations where the options interfere with options from another sub-node?
+							- Works with simple *Thoughts* as siblings, they are ignored
+							- When the question has sub-questions or sub-tasks, they still need to be resolved independently
+							- The semantics would be that the question is resolved if one of the direct child options has a resolution and all other sub-nodes are resolved. It's a little complex.
+							- [D] Yes it seems to work
+					- [a] Question node contains a top-level *Alternatives* and its children *Thoughts* are the options
+						- ["] 
+							- [?] Which graphing library should the frontend use?
+								- [*] Graphing Libraries
+									- [a] ComfyUI
+									- [a] ReactFlow
+									- [a] lightgraph.js
+						- [c] Introduces an extra level of nesting
+						- [c] Introduces an extra node type (the Alternatives container, here expressed with ⭐️) 
+						- [D] We use the flat option with alternative sibling nodes [[#^decision-flat-alternatives]]
+			- [x] Create a separate Note in the vault for the current System Definition
+			- [A] Done in the separate notes [[Alternative]], [[Artifact]], [[Decision]], [[Example]], [[Experiment]], [[Goal]], [[Idea]], [[Knowledge]], [[Location Marker]], [[Meta Comment]], [[Node]], [[Observation]], [[Problem]], [[Question]], [[Task]], [[Thought]]
+		- Using Obsidian as the prototyping UI
+			- [x] Create new vault 
+			- [x] Transfer research graph, Kanban board and nodes from singularity vault 
+			- [x] Add custom CSS to prevent clicking certain node types checkboxes (as it changes the node type too easily)
+			- [x] Add custom CSS for new node types
+				- [A] Resulting icons
+					- ["] 
+					- [a] This is an Alternative `- [a]`
+					- [o] This is an Observation `- [o]`
+					- [D] This is a Decision `- [D]`
+					- [g] This is a Goal `- [g]`
+					- [_] This is an Edge `- [_]`   (currently unused)
+					- [A] This is an Artefact `- [A]` 
+					- [P] This is a Problem `- [P]`
+					- [e] This is an Experiment `- [e]` 
+					- [m] This is a meta (comment) `- [m]`
+					- ["] This is an Example `- ["]` 
+					- [@] This is an AI node `- [@]`
+	- [P] building the graph and creating the nodes is way to slow. It takes me out of thinking mode. I spend more time creating Kanban cards, turning them into nodes, linking them in the graph than on the actual tasks. 
+		- [D] Build the system in Markdown to keep the user in Flow State, see [[#^task-markdown]]
+	- [x] Clean up the tree in this note
+		- merge the tree from [[#^486cc9|Experiment]] into the tree currently under [[#^d1bba1|Changes]]
+	- [?] How can the progress of working on this note for the last 2 hours be expressed within the notation? 
+	- [o] I'm writing a question and immediately start thinking about it. I don't want to be drawn away to create the right nodes. In markdown, I just want to keep typing with nested bullets for notes and possible artifacts. 
+	- [o] I  first decided that indentation models dependency. There were some problems with that. Hierarchy is a tree and represent multiple inputs to a node. I realised there's an alternative, we could represent containment with nestedness and use a different mechanism for dependency. Since a graph is required and obsidian supports linking to different nodes, that could be an option. Now I need to think through more what the implications are. --- 
+	- [o] I often quickly switch context and check conditions off. e.g. when I follow down this route of an alternative, these assumptions are true. When I follow that route, those assumptions are true. This is context. Also important when we work with LLMs. Since they have no memory we can include the assumptions as facts in the prompt. 
+	- [o] While going through pros and cons of an alternative, I discovered another feature that I'd like to have (single file / bullet list can represent the entire graph). That's a nice property to have and likely important. How do I represent this new feature request? Is it a Preference or Requirement? How are they treated in the system? Sub-items of the root/goal node or highest level parent to which it is relevant to? 
+	- [o] I spent many hours in flow state today. This is much more productive than creating nodes in the graphical interface. 
+	- [o] Outliner Plugin helps greatly
+		- [i] Keyboard shortcuts
+			- ⌘-up, ⌘-down folds/unfolds lists
+			- ⌘-shift-up, ⌘-shift-down moves sublists up/down
+			- tab, shift-tab indents/outdents sublist with all children
+	- [o] In a way, this is related to Wolfram's Physics project
+		- A graph-like structure, that evolves by applying rules to itself
+	- [?] Can we define the entire graph with simple markdown syntax? 
+		- [?] do we really need DAG support? 
+			- [D] Yes, Nodes need to be able to depend on more than one parent, which is the key difference. 
+		- [I] Similar to how Kanban Board encodes the board state as nested lists in markdown. 
+		- [?] Can we represent the entire graph (if we select the root) or the entire child graph from a node, as single markdown or an extension to it? 
+			- [i] Yes by using the task syntax and nested lists with back-references
+		- [i] Through back-link references using `^ref` syntax it's possible to define a graph 
+	- [I] an *Assumption* node that just adds a scope with context, outside of the scope, the context is not valid
+		- This is handled through [[Alternatives]]
+	- [?] What features does the language need? 
+		- [/] Define how containment and dependencies work
+			- Assumption: Nested lists model containment
+				- [?] How are dependencies written? 
+					- [a] Use File Links 
+						- [p] can use existing note or not yet created. 
+						- [p] Links can cross reference like a graph (directed too)
+						- [c] slow to create while in thinking mode  
+						- [?] where do the nested bullets go? Inline or in the new note? 
+							- inline convenient for typing but not for viewing later, because we can't see the bullets from different levels of nodes, it's only stored at the parent
+								- [?] Could that be changed? 
+									- Not easily within Obsidian. 
+							- [I] Build a UI that supports recursive introspection of nodes 
+					- [a] Use special syntax that can target any bullet point ^decision-target-with-special-syntax
+						- [c] Could potentially cause circles 
+						- [c] Deviates from Markdown syntax and has to be learned 
+						- [p] Using `^ref` links, they are already supported in Obsidian
+						- [p] I could put the entire graph into a single file / representation. I think that's important. 
+							- Requirement: the entire tree/graph can be represented as a single bullet list from any level. 
+					- [D] We use the `^ref` syntax to target a node [[#^decision-target-with-special-syntax]]
+					- Model containment/dependency with nested bullets and node markers
+						- Only some child nodes become dependencies: Tasks, Research, maybe question? 
+						- [?] Do Question nodes become dependencies for the parent node? 
+							- [-] Yes
+								- questions must always be answered or cause a change in the graph
+							- [x] No
+								- [?] if they are just attached (or contained) within a node, how do they effect progress? 
+									- [i] dependencies must be done to unblock a node 
+									- [I] they act like Subtasks and must be done as part of executing the node to get its status to done. 
+						- [?] How could I model unblocking in that case?  ^Q1
+							- [I] perhaps with the forward notation and a local link 
+							- [x] Investigate local links 
+								- I'm linking to a block here. 
+								- [_] [[#^Q1]]
+								- clicking highlights the node
+								- Custom labels possible
+					- Model dependency only in one direction: a node nested under another node is required (acts as input) to the next parent node. 
+						- This way we can used nestedness for both containment/grouping and dependency. 
+						- [?] in what situations do I need the inverse? 
+							- When a node unblocks more than one other node. 
+		- A Markdown representation of all node types and declaring dependencies
+			- [I] Represent the different node types with Obsidian Checkboxes and minimal theme
+				- [p] Can [define custom ones](https://forum.obsidian.md/t/alternative-checkboxes-icon-bullets-copy-and-paste/35962/10)
+				- [p] Can use [dataview plugin to filter](https://forum.obsidian.md/t/alternative-checkboxes-icon-bullets-copy-and-paste/35962/9) on node types 
+				- [p] easy to parse in Python 
+				- [?] do I have enough icons to cover all my node types? 
+					- [a] No
+						- [x] Use own CSS styling
+							- [c] A bit of work 
+							- [c] Not easily transferable to others
+							- [x] Investigate how this could be done
+								- Explained in the [forum here](https://forum.obsidian.md/t/alternative-checkboxes-icon-bullets-copy-and-paste/35962/10)
+								- Icons from [Remixicon](https://remixicon.com)
+					- [a] Yes
+					- [x] Check [documentation](https://minimal.guide/checklists) 
+					- [-] Map available icons to node types
+						- Already I'm finding nodes that don't have an obvious icon, such as
+							- *Dead Ends* or *Failures*. When encountered, they invalidate their parent (e.g. cancel the parent task). Could redefine `- [f]` which is currently fire. 
+							- Artefacts, which represent outcomes, knowledge, code
+							- *Meta* information, this is related to the process, rather than the project. Could potentially use `- ["]` quote for the switching of contexts. 
+								- But when I apply the system to improving itself, isn't every Node meta? 
+								- Perhaps *Meta* comments are more commentary how it is going working with the system. 
+						- [m] I would like to use a *Failure* marker to cancel the task (I'm using fire for now)
+							- I don't think all my desired note types have a clear mapping to existing icons
+							- I want to keep the system future proof and new node types could be introduced
+							- [P] No, I need to be able to customise the icons
+	- [?] How do *Resolutions* work? 
+		- Resolutions can be *Decisions* (a choice after considering trade-offs, pros and cons) or *Knowledge* (definitive).
+		- Resolutions could be the base type for Decision and Knowledge. A *Question* needs a resolution (either one) in its children to unblock its parent. 
+		- [?] Are *Answers* the same as *Knowledge*?
+			- Since answers express certainties, they do have similarity with the yet to be defined *Knowledge* node. 
+			- [Preference] I'd like to keep the number of node types low when possible
+			- [D] For now, we treat *Answers* as *Knowledge* and don't need a separate *Answer* node
+		- [?] Are sub-types of *Resolutions* such as *Answer*, *Decision* necessary?
+			- Answers are definitive
+			- Decisions deal with uncertainty and trade-offs, and we may later have to come back and choose differently
+			- [D] Yes
+	- [?] Do I need an *Example* node? ^question-example-node
+		- This is perhaps more relevant when applying the system to itself, as I need to try out examples that don't actually represent real nodes (e.g. questions, tasks)
+		- [?] Should I add an example node now? 
+			- [?] Is this useful when using the system for other projects?
+				- If the system needs to reason about itself, yes. e.g. when I want to describe possible solution paths without actually actioning them. 
+				- [Resolution] Sometimes yes.
+			- [p] It can be removed later
+			- [I] Perhaps each project contains extensions / modifications to the Base System Definition, where it can opt in/out of certain features
+			- The system will always undergo changes. I should be comfortable adding/removing features as I see fit.
+				- For this, we'd need an implementation that can read a System Definition and verify if the current graph is valid
+			- ["] Here I'm making a decision, there is no clear yes/no answer. 
+				- [Resolution] Yes
+	- [?] Do I need a node type to represent a *Problem*?
+		- Is this the same as a dead end? Problems are soluable (David Deutsch).
+		- [?] Are Dead Ends just Problems that haven't been expanded / solved yet? 
+			- Example dead end from above: I wasn't able to map all available icons to node types. That's a problem with no obvious solution. But it's still soluable, just perhaps not worth the cost. For example, I could contribute new icon types to the minimal theme code base, or fork my own and add them there. 
+			- It feels like I can get away with using Problems as Dead Ends
+			- [D] use Problem node for Dead Ends / Failures
+	- [?] what is the difference between containment and dependency? 
+	- [?] how do we distinguish syntactically between them
+		- perhaps if the nested bullet is a simple string it is not recognised as new node. Only special marker, eg [Question] or [Task] at the beginning is a node in the graph. Everything else is notes. 
+			- [*] Use internal links 
+			- [*] Obsidian Markdown supports links at the end of the file. 
+				- No, it doesn't work with double bracket style links 
+	- [?] Is the graph append-only, or does it require destructive changes? ^question-append-only
+	- [?] How do I model uncertainty within the system? Is that necessary?
+	- [?] What are numbered lists used for? Rankings? Subtasks that need to be done in order? 
+	- [P] I can't easily see if a question has been resolved
+		- [?] Should the icon change? 
+			- [Preference] I'd like to keep a record of the graph (i.e. that I had the question) 
+			- [I] Perhaps there is a transition log that records all changes to the graph structure
+			- Related to [[#^question-append-only]]
+			- [D] We can use colour and UI effects like hiding/minimising resolved nodes
+	- [P] It's easy to lose track in the tree structure and hard to find things
+		- [Feature] I'd like a way to collapse / hide things I don't currently have to think about (reduce context)
+		- [Feature] Also search, filter functionality, navigating the graph
+	- [I] To operate on the system itself, the system needs to
+		- be representable within the system
+			- Perhaps the [[System Definition v1]] is an Artefact of the process, attached to the top-level goal. 
+		- be able to operate on nodes in itself
+			- since with requirement 1 the definition is now a node in the graph, a *Task* to "make changes to the graph" can produce an *Artefact* that, when executed, makes the changes.  
+	- [I] Projects use the base system, and can optionally define new syntax and semantics needed for that particular project. 
+		- Already I identified several node types that are particularly useful for this system. 
+			- Example nodes
+			- Observations
+			- Features (representing feature requests)
+		- [/] Codify the rules and transformations as part of the syntax 
+			- When you see pattern X, convert it to pattern Y
+			- All bullets that have semantic meaning must be nodes, simple *Thoughts* don't carry semantics
+				- Therefore, we need to represent *Rules* and *Transformations* as nodes
+			- [ ] Look at how Wolfram Physics defines the transformations for hyper-graphs
+			- We need operators representing "for all" and "any" sub-tasks
+			- [?] Do we need if statements?
+			- [?] Do we need filters? E.g. to filter out *Thought* elements when defining rules
+			- Relationship to Lambda calculus
+				- [ ] Research Lambda Calculus
+					- https://en.wikipedia.org/wiki/Lambda_calculus
+					- [i] Typed and Untyped Lambda Calculus
+						- The set of lambda terms $\Lambda$ can be defined inductively:
+							- If $x$ is a variable, then $x \in \Lambda$
+							- If $x$ is a variable and $M \in \Lambda$ then $(\lambda x . M) \in \Lambda$, called an abstraction
+							- If $M, N \in \Lambda$ then $(M\ N) \in \Lambda$, called an application
+						- Untyped is more powerful, but computation may not end (Halting Problem)
+						- Typed calculus is more expressive and can prove more things
+						- We probably need Typed Lambda Calculus, because we want to operate on different types of nodes
+					- [?] What are the core rules / definitions / atomic elements?
+					- [?] How does it deal with self-representation? 
+					- [?] Can we prove the system is Turing complete, and thus can calculate anything a Turing machine can?
+						- This would be a requirement to demonstrate that the system can solve any problem that is calculatable
+				- I need to represent all three rules of lambda terms as nodes $N$ in the graph
+					- A node $n$ is (by definition) a node and $n \in N$
+					- An abstraction can be represented as
+						- [Lambda]
+							- [Variable] n
+								- [Type] T
+							- [Body] M
+					- An application can be represented as
+						- [Application]
+							- [Node] N
+							- [Node] M
+					- ["] Updating the status of a Task with nested Subtasks
+						- Types are "open task", "in progress task", "done task"
+						- [Lambda]
+							- [Variable] node
+								- [Type] open task
+		- Use graph rewriting tools 
+			- ReGraph: https://dev.executableknowledge.org/ReGraph/tutorial_networkx_part1.html#nx-tutorial-part1
+			- [l] Continue
+		- Allow for extensions / modifications / disabling of the rules with other rules
+	- [I] use the location marker to indicate where to continue next time
+		- ["] 
+			- [l] Continue
+	- [I] use a special Edge node `- [_]` to represent an edge to a child with an optional label.
+		- [i] a directed graph can be converted to an undirected graph by representing the edge types (e.g. `depends-on`) as nodes 
+		- the following examples are equivalent since subtasks block parent tasks:
+			- ["] 
+				- [ ] Foo
+					- [_] blocks
+						- [ ] Bar
+			- ["] 
+				- [ ] Foo
+					- [ ] Bar
+		- But this extended syntax allows for
+			- Different edge labels (e.g. relates to)
+			- Creating back- and cross links to other nodes
+			- For now, we use local block link syntax 
+			- ["] 
+				- [g] my goal
+					- [ ] Subgoal 1 ^suboal-1
+					- [ ] Subgoal 2 ^subgoal-2
+				- [ ] Common Research
+					- [_] unblocks [[#^suboal-1]]
+					- [_] unblocks [[#^subgoal-2]]
