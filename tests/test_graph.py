@@ -30,9 +30,9 @@ class TestGraphMgr:
     def test_init(self):
         """Test that the GraphMgr initializes properly."""
         graph_mgr = GraphMgr()
-        assert isinstance(graph_mgr.graph, nx.DiGraph)
-        assert len(graph_mgr.graph.nodes) == 0
-        assert len(graph_mgr.graph.edges) == 0
+        assert isinstance(graph_mgr.nxgraph, nx.DiGraph)
+        assert len(graph_mgr.nxgraph.nodes) == 0
+        assert len(graph_mgr.nxgraph.edges) == 0
 
     def test_add_node(self):
         """Test adding a node to the graph."""
@@ -40,10 +40,10 @@ class TestGraphMgr:
         node = Node(id="test", name="Test Node", marker="T", ref="test_ref")
         graph_mgr.add_node(node)
 
-        assert "test" in graph_mgr.graph.nodes
-        assert graph_mgr.graph.nodes["test"]["name"] == "Test Node"
-        assert graph_mgr.graph.nodes["test"]["marker"] == "T"
-        assert graph_mgr.graph.nodes["test"]["ref"] == "test_ref"
+        assert "test" in graph_mgr.nxgraph.nodes
+        assert graph_mgr.nxgraph.nodes["test"]["name"] == "Test Node"
+        assert graph_mgr.nxgraph.nodes["test"]["marker"] == "T"
+        assert graph_mgr.nxgraph.nodes["test"]["ref"] == "test_ref"
         assert graph_mgr.nodes_by_ref["test_ref"] == "test"
 
     def test_add_edge(self):
@@ -56,7 +56,7 @@ class TestGraphMgr:
         graph_mgr.add_node(node2)
         graph_mgr.add_edge("parent", "child")
 
-        assert ("parent", "child") in graph_mgr.graph.edges
+        assert ("parent", "child") in graph_mgr.nxgraph.edges
 
     def test_get_node_by_ref(self):
         """Test getting a node by reference."""
@@ -77,8 +77,8 @@ class TestGraphMgr:
         graph_mgr = GraphMgr.from_markdown(markdown)
 
         # Check if graph has the right structure
-        assert len(graph_mgr.graph.nodes) == 2
-        assert len(graph_mgr.graph.edges) == 1
+        assert len(graph_mgr.nxgraph.nodes) == 2
+        assert len(graph_mgr.nxgraph.edges) == 1
 
         # Check if references were properly extracted
         root_id = graph_mgr.get_node_by_ref("root")
@@ -86,11 +86,11 @@ class TestGraphMgr:
 
         assert root_id is not None
         assert child_id is not None
-        assert graph_mgr.graph.nodes[root_id]["marker"] == "A"
-        assert graph_mgr.graph.nodes[child_id]["marker"] == "B"
+        assert graph_mgr.nxgraph.nodes[root_id]["marker"] == "A"
+        assert graph_mgr.nxgraph.nodes[child_id]["marker"] == "B"
 
         # Check if the edge is correct
-        assert (root_id, child_id) in graph_mgr.graph.edges
+        assert (root_id, child_id) in graph_mgr.nxgraph.edges
 
     def test_from_markdown_with_thoughts(self):
         """Test creating a graph from a simple markdown."""
@@ -103,8 +103,8 @@ class TestGraphMgr:
         graph_mgr = GraphMgr.from_markdown(markdown)
 
         # Check if graph has the right structure
-        assert len(graph_mgr.graph.nodes) == 3
-        assert len(graph_mgr.graph.edges) == 2
+        assert len(graph_mgr.nxgraph.nodes) == 3
+        assert len(graph_mgr.nxgraph.edges) == 2
 
         # Check if references were properly extracted
         root_id = graph_mgr.get_node_by_ref("root")
@@ -114,20 +114,20 @@ class TestGraphMgr:
         assert root_id is not None
         assert child_id is not None
         assert thought_id is not None
-        assert graph_mgr.graph.nodes[root_id]["marker"] == "A"
-        assert graph_mgr.graph.nodes[child_id]["marker"] == "B"
-        assert graph_mgr.graph.nodes[thought_id]["marker"] is None
+        assert graph_mgr.nxgraph.nodes[root_id]["marker"] == "A"
+        assert graph_mgr.nxgraph.nodes[child_id]["marker"] == "B"
+        assert graph_mgr.nxgraph.nodes[thought_id]["marker"] is None
 
         # Check if the edge is correct
-        assert (root_id, child_id) in graph_mgr.graph.edges
-        assert (root_id, thought_id) in graph_mgr.graph.edges
+        assert (root_id, child_id) in graph_mgr.nxgraph.edges
+        assert (root_id, thought_id) in graph_mgr.nxgraph.edges
 
     def test_from_markdown_complex(self):
         """Test creating a graph from a complex markdown structure."""
         graph_mgr = GraphMgr.from_markdown(SAMPLE_MARKDOWN)
 
         # Check overall structure
-        assert len(graph_mgr.graph.nodes) > 15  # There should be at least 15 nodes
+        assert len(graph_mgr.nxgraph.nodes) > 15  # There should be at least 15 nodes
 
         # Check specific references
         feature_id = graph_mgr.get_node_by_ref("feature3")
@@ -141,16 +141,16 @@ class TestGraphMgr:
         assert alt2_id is not None
 
         # Check node attributes
-        assert graph_mgr.graph.nodes[feature_id]["marker"] == "g"
-        assert graph_mgr.graph.nodes[q1_id]["marker"] == "?"
+        assert graph_mgr.nxgraph.nodes[feature_id]["marker"] == "g"
+        assert graph_mgr.nxgraph.nodes[q1_id]["marker"] == "?"
 
         # Check hierarchy
-        assert nx.has_path(graph_mgr.graph, feature_id, q1_id)
-        assert nx.has_path(graph_mgr.graph, q1_id, alt1_id)
-        assert nx.has_path(graph_mgr.graph, q1_id, alt2_id)
+        assert nx.has_path(graph_mgr.nxgraph, feature_id, q1_id)
+        assert nx.has_path(graph_mgr.nxgraph, q1_id, alt1_id)
+        assert nx.has_path(graph_mgr.nxgraph, q1_id, alt2_id)
 
         # Root should have no parents
-        assert graph_mgr.graph.in_degree(feature_id) == 0
+        assert graph_mgr.nxgraph.in_degree(feature_id) == 0
 
         # Test topological order - feature should come before questions
         topo_order = graph_mgr.topological_sort()
@@ -235,7 +235,7 @@ class TestGraphMgr:
 
         # All leaves should have no children
         for leaf in leaves:
-            assert graph_mgr.graph.out_degree(leaf) == 0
+            assert graph_mgr.nxgraph.out_degree(leaf) == 0
 
     def test_get_subgraph(self):
         """Test creating a subgraph."""
@@ -249,15 +249,15 @@ class TestGraphMgr:
         subgraph = graph_mgr.get_subgraph([feature_id, q1_id, alt1_id])
 
         # Check subgraph nodes
-        assert len(subgraph.graph.nodes) == 3
-        assert feature_id in subgraph.graph.nodes
-        assert q1_id in subgraph.graph.nodes
-        assert alt1_id in subgraph.graph.nodes
+        assert len(subgraph.nxgraph.nodes) == 3
+        assert feature_id in subgraph.nxgraph.nodes
+        assert q1_id in subgraph.nxgraph.nodes
+        assert alt1_id in subgraph.nxgraph.nodes
 
         # Check edges - should have feature->q1 and q1->alt1
-        assert (feature_id, q1_id) in subgraph.graph.edges
-        assert (q1_id, alt1_id) in subgraph.graph.edges
-        assert len(subgraph.graph.edges) == 2
+        assert (feature_id, q1_id) in subgraph.nxgraph.edges
+        assert (q1_id, alt1_id) in subgraph.nxgraph.edges
+        assert len(subgraph.nxgraph.edges) == 2
 
     def test_to_dict(self):
         """Test converting graph to a dictionary."""
@@ -327,7 +327,7 @@ class TestGraphMgr:
         graph_mgr = GraphMgr.from_markdown(markdown)
 
         # Check that we have 3 nodes (even though they have the same content)
-        assert len(graph_mgr.graph.nodes) == 3
+        assert len(graph_mgr.nxgraph.nodes) == 3
 
         # Check that the references are correctly mapped
         ref1_id = graph_mgr.get_node_by_ref("ref1")
@@ -393,26 +393,26 @@ class TestGraphMgr:
         root_descendants = graph_mgr.get_descendants_subgraph("root")
 
         # Should include all nodes
-        assert len(root_descendants.graph.nodes) == 5
-        assert "root" in root_descendants.graph.nodes
-        assert "child1" in root_descendants.graph.nodes
-        assert "child2" in root_descendants.graph.nodes
-        assert "grandchild1" in root_descendants.graph.nodes
-        assert "grandchild2" in root_descendants.graph.nodes
+        assert len(root_descendants.nxgraph.nodes) == 5
+        assert "root" in root_descendants.nxgraph.nodes
+        assert "child1" in root_descendants.nxgraph.nodes
+        assert "child2" in root_descendants.nxgraph.nodes
+        assert "grandchild1" in root_descendants.nxgraph.nodes
+        assert "grandchild2" in root_descendants.nxgraph.nodes
 
         # Get descendants subgraph starting from child1
         child1_descendants = graph_mgr.get_descendants_subgraph("child1")
 
         # Should include only child1 and its descendant
-        assert len(child1_descendants.graph.nodes) == 2
-        assert "child1" in child1_descendants.graph.nodes
-        assert "grandchild1" in child1_descendants.graph.nodes
-        assert "root" not in child1_descendants.graph.nodes  # Parent is excluded
-        assert "child2" not in child1_descendants.graph.nodes  # Sibling is excluded
-        assert "grandchild2" not in child1_descendants.graph.nodes  # Cousin is excluded
+        assert len(child1_descendants.nxgraph.nodes) == 2
+        assert "child1" in child1_descendants.nxgraph.nodes
+        assert "grandchild1" in child1_descendants.nxgraph.nodes
+        assert "root" not in child1_descendants.nxgraph.nodes  # Parent is excluded
+        assert "child2" not in child1_descendants.nxgraph.nodes  # Sibling is excluded
+        assert "grandchild2" not in child1_descendants.nxgraph.nodes  # Cousin is excluded
 
         # Check edges in the child1 descendants subgraph
-        assert ("child1", "grandchild1") in child1_descendants.graph.edges
+        assert ("child1", "grandchild1") in child1_descendants.nxgraph.edges
 
     def test_get_descendants_subgraph_nonexistent_node(self):
         """Test getting descendants subgraph for a nonexistent node."""
@@ -424,8 +424,8 @@ class TestGraphMgr:
         result = graph_mgr.get_descendants_subgraph("nonexistent")
 
         # Should return empty graph
-        assert len(result.graph.nodes) == 0
-        assert len(result.graph.edges) == 0
+        assert len(result.nxgraph.nodes) == 0
+        assert len(result.nxgraph.edges) == 0
 
     def test_get_descendants_subgraph_leaf_node(self):
         """Test getting descendants subgraph for a leaf node."""
@@ -443,9 +443,9 @@ class TestGraphMgr:
         leaf_descendants = graph_mgr.get_descendants_subgraph("child")
 
         # Should contain only the leaf node itself
-        assert len(leaf_descendants.graph.nodes) == 1
-        assert "child" in leaf_descendants.graph.nodes
-        assert len(leaf_descendants.graph.edges) == 0
+        assert len(leaf_descendants.nxgraph.nodes) == 1
+        assert "child" in leaf_descendants.nxgraph.nodes
+        assert len(leaf_descendants.nxgraph.edges) == 0
 
     def test_get_descendants_subgraph_complex(self):
         """Test descendants subgraph on a complex markdown structure."""
@@ -458,12 +458,12 @@ class TestGraphMgr:
         q_descendants = graph_mgr.get_descendants_subgraph(q1_id)
 
         # Should contain the question and its alternatives
-        assert q1_id in q_descendants.graph.nodes
-        assert graph_mgr.get_node_by_ref("alt1") in q_descendants.graph.nodes
-        assert graph_mgr.get_node_by_ref("alt2") in q_descendants.graph.nodes
+        assert q1_id in q_descendants.nxgraph.nodes
+        assert graph_mgr.get_node_by_ref("alt1") in q_descendants.nxgraph.nodes
+        assert graph_mgr.get_node_by_ref("alt2") in q_descendants.nxgraph.nodes
 
         # But should not contain the parent feature node
-        assert graph_mgr.get_node_by_ref("feature3") not in q_descendants.graph.nodes
+        assert graph_mgr.get_node_by_ref("feature3") not in q_descendants.nxgraph.nodes
 
     def test_to_markdown_empty_graph(self):
         """Test converting an empty graph to markdown."""
@@ -485,15 +485,15 @@ class TestGraphMgr:
 
         # Print all nodes for debugging
         print("\nAll nodes:")
-        for node_id in graph_mgr.graph.nodes():
-            attrs = graph_mgr.graph.nodes[node_id]
+        for node_id in graph_mgr.nxgraph.nodes():
+            attrs = graph_mgr.nxgraph.nodes[node_id]
             print(f"Node ID: {node_id}, Name: {attrs.get('name')}, Ref: {attrs.get('ref')}")
 
         # Print all edges for debugging
         print("\nAll edges:")
-        for source, target in graph_mgr.graph.edges():
-            source_name = graph_mgr.graph.nodes[source].get("name")
-            target_name = graph_mgr.graph.nodes[target].get("name")
+        for source, target in graph_mgr.nxgraph.edges():
+            source_name = graph_mgr.nxgraph.nodes[source].get("name")
+            target_name = graph_mgr.nxgraph.nodes[target].get("name")
             print(f"Edge: {source} ({source_name}) -> {target} ({target_name})")
 
         # Get node IDs by reference
@@ -504,8 +504,8 @@ class TestGraphMgr:
         child_with_link_id = None
         grandchild_id = None
 
-        for node_id in graph_mgr.graph.nodes():
-            name = graph_mgr.graph.nodes[node_id].get("name")
+        for node_id in graph_mgr.nxgraph.nodes():
+            name = graph_mgr.nxgraph.nodes[node_id].get("name")
             if "Child with reference link" in name:
                 child_with_link_id = node_id
             elif "Grandchild referencing" in name:
@@ -516,9 +516,9 @@ class TestGraphMgr:
         assert grandchild_id is not None, "Could not find node with 'Grandchild referencing'"
 
         # Verify reference links created edges
-        assert (child_with_link_id, root_id) in graph_mgr.graph.edges, "Missing reference edge from child to root"
-        assert (grandchild_id, root_id) in graph_mgr.graph.edges, "Missing reference edge from grandchild to root"
-        assert (grandchild_id, child_id) in graph_mgr.graph.edges, (
+        assert (child_with_link_id, root_id) in graph_mgr.nxgraph.edges, "Missing reference edge from child to root"
+        assert (grandchild_id, root_id) in graph_mgr.nxgraph.edges, "Missing reference edge from grandchild to root"
+        assert (grandchild_id, child_id) in graph_mgr.nxgraph.edges, (
             "Missing reference edge from grandchild to independent node"
         )
 
@@ -548,17 +548,17 @@ class TestGraphMgr:
 
         # Print all nodes for debugging
         print("\nAll nodes:")
-        for node_id in graph_mgr.graph.nodes():
-            attrs = graph_mgr.graph.nodes[node_id]
+        for node_id in graph_mgr.nxgraph.nodes():
+            attrs = graph_mgr.nxgraph.nodes[node_id]
             print(
                 f"Node ID: {node_id}, Name: {attrs.get('name')}, Marker: {attrs.get('marker')}, Ref: {attrs.get('ref')}"
             )
 
         # Print all edges for debugging
         print("\nAll edges:")
-        for source, target in graph_mgr.graph.edges():
-            source_name = graph_mgr.graph.nodes[source].get("name")
-            target_name = graph_mgr.graph.nodes[target].get("name")
+        for source, target in graph_mgr.nxgraph.edges():
+            source_name = graph_mgr.nxgraph.nodes[source].get("name")
+            target_name = graph_mgr.nxgraph.nodes[target].get("name")
             print(f"Edge: {source} ({source_name}) -> {target} ({target_name})")
 
         # Get node IDs by reference
@@ -570,8 +570,8 @@ class TestGraphMgr:
         critical_node_id = None
         note_node_id = None
 
-        for node_id in graph_mgr.graph.nodes():
-            attrs = graph_mgr.graph.nodes[node_id]
+        for node_id in graph_mgr.nxgraph.nodes():
+            attrs = graph_mgr.nxgraph.nodes[node_id]
             name = attrs.get("name")
             marker = attrs.get("marker")
 
@@ -588,13 +588,13 @@ class TestGraphMgr:
         assert note_node_id is not None, "Could not find note node"
 
         # Verify multi-character markers are preserved
-        assert graph_mgr.graph.nodes[proj_id]["marker"] == "project"
-        assert graph_mgr.graph.nodes[task_id]["marker"] == "completed"
+        assert graph_mgr.nxgraph.nodes[proj_id]["marker"] == "project"
+        assert graph_mgr.nxgraph.nodes[task_id]["marker"] == "completed"
 
         # Verify reference links created edges
-        assert (todo_node_id, proj_id) in graph_mgr.graph.edges, "Missing reference edge from todo to project"
-        assert (critical_node_id, proj_id) in graph_mgr.graph.edges, "Missing reference edge from critical to project"
-        assert (note_node_id, task_id) in graph_mgr.graph.edges, "Missing reference edge from note to task"
+        assert (todo_node_id, proj_id) in graph_mgr.nxgraph.edges, "Missing reference edge from todo to project"
+        assert (critical_node_id, proj_id) in graph_mgr.nxgraph.edges, "Missing reference edge from critical to project"
+        assert (note_node_id, task_id) in graph_mgr.nxgraph.edges, "Missing reference edge from note to task"
 
         # Test the to_markdown function to ensure reference links are preserved
         markdown_output = graph_mgr.to_markdown()
@@ -687,10 +687,10 @@ class TestGraphMgr:
         alt2_id = graph_mgr.get_node_by_ref("alt2")
 
         # Feature -> Question
-        assert (feature_id, q1_id) in graph_mgr.graph.edges
+        assert (feature_id, q1_id) in graph_mgr.nxgraph.edges
         # Question -> Alternatives
-        assert (q1_id, alt1_id) in graph_mgr.graph.edges
-        assert (q1_id, alt2_id) in graph_mgr.graph.edges
+        assert (q1_id, alt1_id) in graph_mgr.nxgraph.edges
+        assert (q1_id, alt2_id) in graph_mgr.nxgraph.edges
 
         # Create a new graph from the serialized markdown
         new_graph = GraphMgr.from_markdown(result_md)
@@ -733,8 +733,8 @@ class TestGraphMgr:
         assert new_root_id is not None
         assert new_child_id is not None
         assert new_gc_id is not None
-        assert (new_root_id, new_child_id) in new_graph.graph.edges
-        assert (new_child_id, new_gc_id) in new_graph.graph.edges
+        assert (new_root_id, new_child_id) in new_graph.nxgraph.edges
+        assert (new_child_id, new_gc_id) in new_graph.nxgraph.edges
 
     def test_to_markdown_custom_indent_str(self):
         """Test to_markdown with custom string indentation (tab)."""
@@ -765,7 +765,7 @@ class TestGraphMgr:
 
         assert new_root_id is not None
         assert new_child_id is not None
-        assert (new_root_id, new_child_id) in new_graph.graph.edges
+        assert (new_root_id, new_child_id) in new_graph.nxgraph.edges
 
     def test_to_markdown_custom_roots(self):
         """Test to_markdown with custom root nodes parameter."""
@@ -929,7 +929,7 @@ class TestGraphMgr:
 
         # The output graph might be different due to cycle handling,
         # so we just check that we have a non-empty graph
-        assert len(new_graph.graph.nodes) > 0, "No nodes in regenerated graph"
+        assert len(new_graph.nxgraph.nodes) > 0, "No nodes in regenerated graph"
 
         # We should have at least one reference preserved
         important_refs = ["prj", "f1", "f2", "t1"]
@@ -1032,4 +1032,4 @@ class TestGraphMgr:
         new_graph = GraphMgr.from_markdown(markdown)
 
         # Verify the regenerated graph has nodes
-        assert len(new_graph.graph.nodes) > 0, "No nodes in regenerated graph"
+        assert len(new_graph.nxgraph.nodes) > 0, "No nodes in regenerated graph"

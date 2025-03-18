@@ -20,7 +20,7 @@ class GraphMgr:
 
     def __init__(self, allow_cycles: bool = False) -> None:
         """Initialize a new graph manager with an empty graph."""
-        self.graph = nx.DiGraph()
+        self.nxgraph = nx.DiGraph()
         self.nodes_by_ref = {}  # Maps reference IDs to node IDs
         self.allow_cycles = allow_cycles
 
@@ -30,7 +30,7 @@ class GraphMgr:
         Args:
             node: The node to add.
         """
-        self.graph.add_node(node.id, **node.__dict__)
+        self.nxgraph.add_node(node.id, **node.__dict__)
 
         # If the node has a reference, add it to the ref mapping
         if node.ref:
@@ -44,7 +44,7 @@ class GraphMgr:
             child_id: The ID of the child node.
             edge_type: The type of edge (default is EdgeType.REQUIRES).
         """
-        self.graph.add_edge(parent_id, child_id, type=edge_type.value)
+        self.nxgraph.add_edge(parent_id, child_id, type=edge_type.value)
 
     def get_node_by_ref(self, ref: str) -> Optional[str]:
         """Get a node ID by its reference ID.
@@ -66,7 +66,7 @@ class GraphMgr:
         Returns:
             Dictionary of node attributes.
         """
-        return self.graph.nodes[node_id]
+        return self.nxgraph.nodes[node_id]
 
     def is_acyclic(self) -> bool:
         """Check if the graph is acyclic.
@@ -74,7 +74,7 @@ class GraphMgr:
         Returns:
             True if the graph is acyclic, False otherwise.
         """
-        return nx.is_directed_acyclic_graph(self.graph)
+        return nx.is_directed_acyclic_graph(self.nxgraph)
 
     def topological_sort(self) -> List[str]:
         """Return nodes in topological order if graph is a DAG.
@@ -84,7 +84,7 @@ class GraphMgr:
         """
         if not self.is_acyclic():
             raise ValueError("Graph contains cycles and cannot be topologically sorted")
-        return list(nx.topological_sort(self.graph))
+        return list(nx.topological_sort(self.nxgraph))
 
     def get_roots(self) -> List[str]:
         """Get all root nodes (nodes with no incoming edges).
@@ -92,7 +92,7 @@ class GraphMgr:
         Returns:
             List of root node IDs.
         """
-        return [n for n in self.graph.nodes() if self.graph.in_degree(n) == 0]
+        return [n for n in self.nxgraph.nodes() if self.nxgraph.in_degree(n) == 0]
 
     def get_leaves(self) -> List[str]:
         """Get all leaf nodes (nodes with no outgoing edges).
@@ -100,7 +100,7 @@ class GraphMgr:
         Returns:
             List of leaf node IDs.
         """
-        return [n for n in self.graph.nodes() if self.graph.out_degree(n) == 0]
+        return [n for n in self.nxgraph.nodes() if self.nxgraph.out_degree(n) == 0]
 
     @classmethod
     def from_markdown(cls, markdown: str, allow_cycles: bool = False) -> "GraphMgr":
@@ -169,8 +169,8 @@ class GraphMgr:
             Dictionary representation of the graph.
         """
         return {
-            "nodes": [self.graph.nodes[n] for n in self.graph.nodes()],
-            "edges": [{"source": s, "target": t, **d} for s, t, d in self.graph.edges(data=True)],
+            "nodes": [self.nxgraph.nodes[n] for n in self.nxgraph.nodes()],
+            "edges": [{"source": s, "target": t, **d} for s, t, d in self.nxgraph.edges(data=True)],
         }
 
     def find_paths(self, source: str, target: str) -> List[List[str]]:
@@ -183,11 +183,11 @@ class GraphMgr:
         Returns:
             List of paths, where each path is a list of node IDs.
         """
-        if source not in self.graph or target not in self.graph:
+        if source not in self.nxgraph or target not in self.nxgraph:
             return []
 
         try:
-            return list(nx.all_simple_paths(self.graph, source, target))
+            return list(nx.all_simple_paths(self.nxgraph, source, target))
         except nx.NetworkXNoPath:
             return []
 
@@ -204,6 +204,29 @@ class GraphMgr:
         paths = self.find_paths(source, target)
         return paths[0] if paths else None
 
+    def has_blocking_descendants(self, node_id: str) -> bool:
+        """Check if a node has any blocking descendants.
+
+        Args:
+            node_id: The ID of the node to check.
+
+        Returns:
+            True if the node has blocking descendants, False otherwise.
+        """
+        if node_id not in self.nxgraph:
+            return False
+
+        # Get the descendants subgraph
+        descendants_subgraph = self.get_descendants_subgraph(node_id)
+
+        # Check if any descendant is blocking
+        for desc_node_id in descendants_subgraph.nxgraph.nodes():
+            node_attrs = self.get_node_attributes(desc_node_id)
+            if node_attrs.get("is_blocking", False):
+                return True
+
+        return False
+
     def get_subgraph_by_edge_type(self, edge_type: EdgeType | str) -> "GraphMgr":
         """Get a subgraph containing only edges of the specified type.
 
@@ -219,13 +242,13 @@ class GraphMgr:
             edge_type = EdgeType(edge_type)
 
         # Add nodes
-        for node_id in self.graph.nodes():
+        for node_id in self.nxgraph.nodes():
             node_attrs = self.get_node_attributes(node_id)
             node = Node(**node_attrs)
             instance.add_node(node)
 
         # Add edges of the specified type
-        for source, target, data in self.graph.edges(data=True):
+        for source, target, data in self.nxgraph.edges(data=True):
             if data.get("type") == edge_type.value:
                 instance.add_edge(source, target, edge_type=edge_type)
 
@@ -244,7 +267,7 @@ class GraphMgr:
 
         # Add nodes
         for node_id in node_ids:
-            if node_id in self.graph:
+            if node_id in self.nxgraph:
                 node_attrs = self.get_node_attributes(node_id)
                 node = Node(
                     id=node_attrs["id"], name=node_attrs["name"], marker=node_attrs["marker"], ref=node_attrs.get("ref")
@@ -252,7 +275,7 @@ class GraphMgr:
                 instance.add_node(node)
 
         # Add edges
-        for source, target in self.graph.edges():
+        for source, target in self.nxgraph.edges():
             if source in node_ids and target in node_ids:
                 instance.add_edge(source, target)
 
@@ -267,11 +290,11 @@ class GraphMgr:
         Returns:
             A new GraphMgr instance containing the node and all its descendants.
         """
-        if node_id not in self.graph:
+        if node_id not in self.nxgraph:
             return GraphMgr()  # Return empty graph if node doesn't exist
 
         # Use NetworkX's built-in bfs_tree to get a tree of all descendants
-        descendants_tree = nx.bfs_tree(self.graph, node_id)
+        descendants_tree = nx.bfs_tree(self.nxgraph, node_id)
 
         # Get the node IDs from the tree
         node_ids = list(descendants_tree.nodes())
@@ -289,7 +312,7 @@ class GraphMgr:
         Returns:
             A markdown string representing the graph as hierarchical list items.
         """
-        if not self.graph.nodes:
+        if not self.nxgraph.nodes:
             return ""  # Empty graph results in empty string
 
         # If no root nodes provided, use all nodes without incoming edges
@@ -297,16 +320,16 @@ class GraphMgr:
             root_nodes = self.get_roots()
 
         # If still no root nodes (graph might have cycles), use any node
-        if not root_nodes and self.graph.nodes:
-            root_nodes = [next(iter(self.graph.nodes))]
+        if not root_nodes and self.nxgraph.nodes:
+            root_nodes = [next(iter(self.nxgraph.nodes))]
 
         # Get a list of edges with type="requires"
         requires_edges = [
-            (u, v) for u, v, data in self.graph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
+            (u, v) for u, v, data in self.nxgraph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
         ]
 
         # Create the subgraph
-        requires_subgraph = self.graph.edge_subgraph(requires_edges)
+        requires_subgraph = self.nxgraph.edge_subgraph(requires_edges)
 
         if isinstance(indent, int):
             indent = " " * indent
