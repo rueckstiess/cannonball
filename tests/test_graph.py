@@ -1,5 +1,5 @@
 import pytest
-from cannonball.graph import GraphMgr, EdgeType
+from cannonball.graph import GraphMgr
 from cannonball.nodes import Node
 import networkx as nx
 import unittest
@@ -498,7 +498,7 @@ class TestGraphMgr:
         assert (q1_id, alt2_id) in graph_mgr.nxgraph.edges
 
         # Create a new graph from the serialized markdown
-        new_graph = GraphMgr.from_markdown(result_md)
+        GraphMgr.from_markdown(result_md)
 
         # The number of nodes might differ slightly due to changes in text extraction
         # The important part is that the key references and structure are maintained
@@ -641,54 +641,30 @@ class TestGraphMgr:
         assert markdown.count("^node3") == 1
 
     def test_to_markdown_complex_nested_example(self):
-        """Test to_markdown with a complex nested example with multiple levels."""
-        # Create a simpler nested example that doesn't rely on reference links
-        # which might create cycles and break the to_markdown output
-        original_md = """
-        - [project] Main project task ^prj
-          - [feature] Feature 1: User Authentication ^f1
-            - [task] Design login screen ^t1
-              - [subtask] Create mockups ^st1
-              - [subtask] Get feedback from team ^st2
-            - [task] Implement backend auth ^t2
-              - [subtask] Set up OAuth integration ^st3
-              - [subtask] Write unit tests ^st4
-          - [feature] Feature 2: Dashboard ^f2
-            - [task] Create widget framework ^t3
-              - [blocker] Need design specs first
-            - [task] Implement data sources ^t4
-        - [milestone] Version 1.0 Release ^m1
-          - [task] Finalize documentation ^td
-          - [task] Submit to app store ^ta
-        """
+        """Test to_markdown with a complex nested example with multiple levels and multi-char markers."""
+
+        original_md = """\
+- [project] Main project task ^prj
+    - [feature] Feature 1: User Authentication ^f1
+    - [task] Design login screen ^t1
+        - [subtask] Create mockups ^st1
+        - [subtask] Get feedback from team ^st2
+    - [task] Implement backend auth ^t2
+        - [subtask] Set up OAuth integration ^st3
+        - [subtask] Write unit tests ^st4
+    - [feature] Feature 2: Dashboard ^f2
+    - [task] Create widget framework ^t3
+        - [blocker] Need design specs first
+    - [task] Implement data sources ^t4
+- [milestone] Version 1.0 Release ^m1
+    - [task] Finalize documentation ^td
+    - [task] Submit to app store ^ta
+"""
 
         # Parse the markdown into a graph
-        graph_mgr = GraphMgr()
-
-        # Manually create nodes and edges to ensure test works without relying on from_markdown
-        project = Node(id="proj", name="[project] Main project task ^prj", marker="project", ref="prj")
-        feature1 = Node(id="feat1", name="[feature] Feature 1: User Authentication ^f1", marker="feature", ref="f1")
-        task1 = Node(id="task1", name="[task] Design login screen ^t1", marker="task", ref="t1")
-
-        graph_mgr.add_node(project)
-        graph_mgr.add_node(feature1)
-        graph_mgr.add_node(task1)
-
-        # Add edges to create hierarchy
-        graph_mgr.add_edge(project, feature1)
-        graph_mgr.add_edge(feature1, task1)
-
-        # Convert to markdown
-        result_md = graph_mgr.to_markdown()
-
-        # Function to normalize whitespace for comparison
-        def normalize(md):
-            # Remove leading/trailing whitespace from each line and filter out empty lines
-            return "\n".join(line.strip() for line in md.strip().split("\n") if line.strip())
-
-        # Normalized versions for comparison
-        normalize(original_md)
-        normalized_result = normalize(result_md)
+        graph_mgr = GraphMgr.from_markdown(original_md)
+        result_md = graph_mgr.to_markdown(indent=4)
+        assert result_md == original_md, "Markdown output does not match original input"
 
     def test_to_markdown_preserves_rich_formatting(self):
         """Test to_markdown preserves rich formatting in node names."""
