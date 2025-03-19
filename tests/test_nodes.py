@@ -20,17 +20,11 @@ class TestBlockingNode(unittest.TestCase):
 
         # Create a child node that is blocking
         blocking_child = BlockingNode(id="blocking_child", name="Blocking Child")
-        blocking_child.is_blocking = (
-            lambda g: True
-        )  # Override is_blocking to always return True
+        blocking_child.is_blocked = lambda g: True  # Override is_blocked to always return True
 
         # Create a child node that is not blocking
-        non_blocking_child = BlockingNode(
-            id="non_blocking_child", name="Non-Blocking Child"
-        )
-        non_blocking_child.is_blocking = (
-            lambda g: False
-        )  # Override is_blocking to always return False
+        non_blocking_child = BlockingNode(id="non_blocking_child", name="Non-Blocking Child")
+        non_blocking_child.is_blocked = lambda g: False  # Override is_blocked to always return False
 
         # Add nodes to the graph
         for node in [parent, blocking_child, non_blocking_child]:
@@ -49,25 +43,19 @@ class TestBlockingNode(unittest.TestCase):
 
         # Create level 1 nodes
         level1_a = BlockingNode(id="level1_a", name="Level 1A")
-        level1_a.is_blocking = lambda g: False
-
         level1_b = BlockingNode(id="level1_b", name="Level 1B")
-        level1_b.is_blocking = lambda g: False
 
         # Create level 2 nodes under level1_a
         level2_a1 = BlockingNode(id="level2_a1", name="Level 2A1")
-        level2_a1.is_blocking = lambda g: True  # This node is blocking
-
+        level2_a1.is_blocked = lambda g: True  # This node is always blocked
         level2_a2 = BlockingNode(id="level2_a2", name="Level 2A2")
-        level2_a2.is_blocking = lambda g: False
 
         # Create level 2 nodes under level1_b
         level2_b1 = BlockingNode(id="level2_b1", name="Level 2B1")
-        level2_b1.is_blocking = lambda g: False
 
         # Create level 3 node under level2_b1
         level3_b1 = BlockingNode(id="level3_b1", name="Level 3B1")
-        level3_b1.is_blocking = lambda g: True  # This node is blocking
+        level3_b1.is_blocked = lambda g: True  # This node is always blocked
 
         # Add all nodes to the graph
         nodes = [root, level1_a, level1_b, level2_a1, level2_a2, level2_b1, level3_b1]
@@ -99,19 +87,14 @@ class TestBlockingNode(unittest.TestCase):
 
         # Nodes connected with REQUIRES edges
         req_child1 = BlockingNode(id="req_child1", name="Required Child 1")
-        req_child1.is_blocking = lambda g: True  # This node is blocking
-
+        req_child1.is_blocked = lambda g: True  # This node is blocking
         req_child2 = BlockingNode(id="req_child2", name="Required Child 2")
-        req_child2.is_blocking = lambda g: False
 
         # Nodes connected with REFERENCES edges
         ref_child1 = BlockingNode(id="ref_child1", name="Reference Child 1")
-        ref_child1.is_blocking = (
-            lambda g: True
-        )  # This is blocking but shouldn't affect parent
+        ref_child1.is_blocked = lambda g: True  # This is blocking but shouldn't affect parent
 
         ref_child2 = BlockingNode(id="ref_child2", name="Reference Child 2")
-        ref_child2.is_blocking = lambda g: False
 
         # Add nodes to the graph
         nodes = [root, req_child1, req_child2, ref_child1, ref_child2]
@@ -132,12 +115,12 @@ class TestBlockingNode(unittest.TestCase):
             "ref_child2": ref_child2,
         }
 
-    def test_default_is_blocking(self):
-        """Test the default implementation of is_blocking."""
+    def test_default_is_blocked(self):
+        """Test the default implementation of is_blocked."""
         node = BlockingNode(id="test", name="Test Node")
         self.assertFalse(
-            node.is_blocking(self.graph),
-            "BlockingNode.is_blocking should return False by default",
+            node.is_blocked(self.graph),
+            "BlockingNode.is_blocked should return False by default",
         )
 
     def test_is_blocked_simple(self):
@@ -155,7 +138,7 @@ class TestBlockingNode(unittest.TestCase):
         parent, blocking_child, non_blocking_child = self.create_simple_graph()
 
         # Modify blocking_child to be non-blocking
-        blocking_child.is_blocking = lambda g: False
+        blocking_child.is_blocked = lambda g: False
 
         # Now parent should not be blocked
         self.assertFalse(
@@ -190,7 +173,7 @@ class TestBlockingNode(unittest.TestCase):
         nodes = self.create_nested_graph()
 
         # Make level2_a1 non-blocking
-        nodes["level2_a1"].is_blocking = lambda g: False
+        nodes["level2_a1"].is_blocked = lambda g: False
 
         # level1_a should now be unblocked
         self.assertFalse(
@@ -205,7 +188,7 @@ class TestBlockingNode(unittest.TestCase):
         )
 
         # Now make level3_b1 non-blocking
-        nodes["level3_b1"].is_blocking = lambda g: False
+        nodes["level3_b1"].is_blocked = lambda g: False
 
         # Root should now be unblocked
         self.assertFalse(
@@ -224,7 +207,7 @@ class TestBlockingNode(unittest.TestCase):
         )
 
         # Make req_child1 non-blocking
-        nodes["req_child1"].is_blocking = lambda g: False
+        nodes["req_child1"].is_blocked = lambda g: False
 
         # Root should now be unblocked, even though ref_child1 is blocking
         self.assertFalse(
@@ -238,9 +221,7 @@ class TestBlockingNode(unittest.TestCase):
         self.graph.add_node(node, **node.__dict__)
 
         # A node with no children should not be blocked
-        self.assertFalse(
-            node.is_blocked(self.graph), "Node with no children should not be blocked"
-        )
+        self.assertFalse(node.is_blocked(self.graph), "Node with no children should not be blocked")
 
     def test_is_blocked_with_empty_graph(self):
         """Test is_blocked with an empty graph."""
@@ -248,16 +229,14 @@ class TestBlockingNode(unittest.TestCase):
         node = BlockingNode(id="test", name="Test Node")
 
         # A node in an empty graph should not be blocked
-        self.assertFalse(
-            node.is_blocked(empty_graph), "Node in empty graph should not be blocked"
-        )
+        self.assertFalse(node.is_blocked(empty_graph), "Node in empty graph should not be blocked")
 
     def test_cyclic_graph(self):
         """Test is_blocked with a cyclic graph."""
         # Create nodes
         node_a = BlockingNode(id="A", name="Node A")
         node_b = BlockingNode(id="B", name="Node B")
-        node_b.is_blocking = lambda g: True  # Node B is blocking
+        node_b.is_blocked = lambda g: True  # Node B is blocking
 
         # Add nodes to the graph
         graph = nx.DiGraph()
@@ -281,34 +260,22 @@ class TestBlockingNode(unittest.TestCase):
         graph = nx.DiGraph()
 
         # Test QuestionNode
-        question_resolved = QuestionNode(
-            id="q1", name="Resolved Question", is_resolved=True
-        )
-        question_unresolved = QuestionNode(
-            id="q2", name="Unresolved Question", is_resolved=False
-        )
+        question_resolved = QuestionNode(id="q1", name="Resolved Question", is_resolved=True)
+        question_unresolved = QuestionNode(id="q2", name="Unresolved Question", is_resolved=False)
 
-        self.assertFalse(
-            question_resolved.is_blocking(graph), "Resolved question should not block"
-        )
-        self.assertTrue(
-            question_unresolved.is_blocking(graph), "Unresolved question should block"
-        )
+        self.assertFalse(question_resolved.is_blocked(graph), "Resolved question should not block")
+        self.assertTrue(question_unresolved.is_blocked(graph), "Unresolved question should block")
 
         # Test ProblemNode
         problem = ProblemNode(id="p1", name="Problem")
-        self.assertTrue(problem.is_blocking(graph), "Problem should always block")
+        self.assertTrue(problem.is_blocked(graph), "Problem should always block")
 
         # Test GoalNode
         goal_achieved = GoalNode(id="g1", name="Achieved Goal", is_achieved=True)
         goal_unachieved = GoalNode(id="g2", name="Unachieved Goal", is_achieved=False)
 
-        self.assertFalse(
-            goal_achieved.is_blocking(graph), "Achieved goal should not block"
-        )
-        self.assertTrue(
-            goal_unachieved.is_blocking(graph), "Unachieved goal should block"
-        )
+        self.assertFalse(goal_achieved.is_blocked(graph), "Achieved goal should not block")
+        self.assertTrue(goal_unachieved.is_blocked(graph), "Unachieved goal should block")
 
     def test_propagation_multiple_levels(self):
         """Test blocking propagation through multiple levels of nodes."""
@@ -321,12 +288,12 @@ class TestBlockingNode(unittest.TestCase):
             "root": BlockingNode(id="root", name="Root"),
             "A": BlockingNode(id="A", name="Level A"),
             "B": BlockingNode(id="B", name="Level B"),
-            "C": Node(id="C", name="Level C"),
+            "C": BlockingNode(id="C", name="Level C"),
             "D": BlockingNode(id="D", name="Level D"),
         }
 
         # Make node D blocking
-        nodes["D"].is_blocking = lambda g: True
+        nodes["D"].is_blocked = lambda g: True
 
         # Add nodes to graph
         for node in nodes.values():
@@ -351,11 +318,13 @@ class TestBlockingNode(unittest.TestCase):
             nodes["B"].is_blocked(deep_graph),
             "Node B should be blocked by node D (2 levels deep)",
         )
-        # node C is not a blocking node, does not have .is_blocked
-        # self.assertTrue(nodes["C"].is_blocked(deep_graph), "Node C should be blocked by node D (1 level deep)")
+        self.assertTrue(
+            nodes["C"].is_blocked(deep_graph),
+            "Node C should be blocked by node D (1 level deep)",
+        )
 
-        # Node D itself should not be blocked
-        self.assertFalse(
+        # Node D itself should be blocked (per definition)
+        self.assertTrue(
             nodes["D"].is_blocked(deep_graph),
             "Node D should not be blocked as it has no children",
         )

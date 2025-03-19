@@ -34,41 +34,30 @@ class Node:
 class BlockingNode(Node):
     """A node that can potentially block its parent nodes based on its state."""
 
-    can_block = True
-
-    def is_blocking(self, graph: nx.DiGraph) -> bool:
-        """Determine if this node is currently blocking based on its graph.
-
-        Args:
-            graph: The current graph
-
-        Returns:
-            bool: True if this node is blocking its parents, False otherwise
-        """
-        # Default implementation (to be overridden by specific node types)
-        return False
-
     def is_blocked(self, graph: nx.DiGraph) -> bool:
-        """Determine if this node is blocked by any of its children.
+        """Determine if this node is in blocked state.
 
-        By default, this method returns True if any of its "required" descendant nodes are blocking
+        By default, a node is blocked if any of its children are blocked.
+        This can be overridden by subclasses to implement custom blocking logic.
 
         Args:
             graph: The current graph
 
         Returns:
-            bool: True if this node is blocked by any graph, False otherwise
+            bool: True if this node is blocked
         """
         subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
         return (
-            any(
-                getattr(node, "is_blocking", lambda _: False)(subgraph)
-                for node in subgraph
-                if node != self
-            )
+            any(getattr(node, "is_blocked", lambda _: False)(subgraph) for node in subgraph.successors(self))
             if subgraph
             else False
         )
+
+
+class ThoughtNode(BlockingNode):
+    """A thought node is a node without a marker (single `-` bullet point). It is never blocked"""
+
+    pass
 
 
 class QuestionNode(BlockingNode):
@@ -93,7 +82,7 @@ class QuestionNode(BlockingNode):
         super().__init__(id, name, marker, ref)
         self.is_resolved = is_resolved
 
-    def is_blocking(self, graph: nx.DiGraph) -> bool:
+    def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A question blocks if it's not resolved."""
         return not self.is_resolved
 
@@ -101,7 +90,7 @@ class QuestionNode(BlockingNode):
 class ProblemNode(BlockingNode):
     """A problem node that always blocks."""
 
-    def is_blocking(self, graph: nx.DiGraph) -> bool:
+    def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A problem always blocks."""
         return True
 
@@ -128,6 +117,6 @@ class GoalNode(BlockingNode):
         super().__init__(id, name, marker, ref)
         self.is_achieved = is_achieved
 
-    def is_blocking(self, graph: nx.DiGraph) -> bool:
+    def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A goal blocks if it's not achieved."""
         return not self.is_achieved
