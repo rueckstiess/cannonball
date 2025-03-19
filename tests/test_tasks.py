@@ -21,18 +21,43 @@ class TestTask(unittest.TestCase):
         task = Task(id="task1", name="Task 1")
         self.assertEqual(task.id, "task1")
         self.assertEqual(task.name, "Task 1")
-        self.assertEqual(task.status, TaskType.OPEN)
-        self.assertIsNone(task.marker)
+        self.assertEqual(task._status, TaskType.OPEN)
+        self.assertEqual(task.marker, " ")
         self.assertIsNone(task.ref)
 
     def test_task_custom_initialization(self):
         """Test that a Task can be initialized with custom values."""
-        task = Task(id="task2", name="Task 2", marker="TODO", ref="REF123", status=TaskType.IN_PROGRESS)
+        task = Task(id="task2", name="Task 2", ref="REF123", status=TaskType.IN_PROGRESS)
         self.assertEqual(task.id, "task2")
         self.assertEqual(task.name, "Task 2")
-        self.assertEqual(task.status, TaskType.IN_PROGRESS)
-        self.assertEqual(task.marker, "TODO")
+        self.assertEqual(task._status, TaskType.IN_PROGRESS)
+        self.assertEqual(task.marker, "/")
         self.assertEqual(task.ref, "REF123")
+
+    def test_marker_inference_from_status(self):
+        """Test that all task statuses correctly infer their respective markers."""
+        open_task = Task(id="open", name="Open Task", status=TaskType.OPEN)
+        in_progress_task = Task(id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS)
+        completed_task = Task(id="done", name="Completed Task", status=TaskType.COMPLETED)
+        cancelled_task = Task(id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED)
+
+        self.assertEqual(open_task.marker, " ")
+        self.assertEqual(in_progress_task.marker, "/")
+        self.assertEqual(completed_task.marker, "x")
+        self.assertEqual(cancelled_task.marker, "-")
+
+    def test_marker_updates_with_status_change(self):
+        """Test that changing the task status also updates its marker."""
+        task = Task(id="task", name="Task", status=TaskType.OPEN)
+        self.assertEqual(task.marker, " ")
+
+        # Change status and verify marker updates
+        task.status = TaskType.IN_PROGRESS
+        self.assertEqual(task.marker, "/")
+        task.status = TaskType.COMPLETED
+        self.assertEqual(task.marker, "x")
+        task.status = TaskType.CANCELLED
+        self.assertEqual(task.marker, "-")
 
     def test_is_finished_for_different_statuses(self):
         """Test is_finished() returns correct result for different task statuses."""
@@ -165,11 +190,11 @@ class TestTask(unittest.TestCase):
         self.assertTrue(task.is_blocked(graph))
 
         # Change status to COMPLETED
-        task.status = TaskType.COMPLETED
+        task._status = TaskType.COMPLETED
         self.assertFalse(task.is_blocked(graph))
 
         # Change back to IN_PROGRESS
-        task.status = TaskType.IN_PROGRESS
+        task._status = TaskType.IN_PROGRESS
         self.assertTrue(task.is_blocked(graph))
 
     def test_completed_task_blocked_by_child(self):

@@ -81,7 +81,6 @@ class Task(BlockingNode):
         self,
         id: str,
         name: str,
-        marker: Optional[str] = None,
         ref: Optional[str] = None,
         status: TaskType = TaskType.OPEN,
     ) -> None:
@@ -93,8 +92,26 @@ class Task(BlockingNode):
             marker: Optional marker for the node.
             ref: Optional reference for the node.
         """
+        self.status_markers = {
+            TaskType.OPEN: " ",
+            TaskType.IN_PROGRESS: "/",
+            TaskType.COMPLETED: "x",
+            TaskType.CANCELLED: "-",
+        }
+
+        # Derive marker from status
+        marker = self.status_markers[status]
         super().__init__(id, name, marker, ref)
-        self.status = status
+        self._status = status
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, status):
+        self._status = status
+        self.marker = self.status_markers[status]
 
     def is_finished(self) -> bool:
         """Check if the task is completed or cancelled.
@@ -102,7 +119,7 @@ class Task(BlockingNode):
         Returns:
             bool: True if the task is completed or cancelled
         """
-        return self.status in (TaskType.COMPLETED, TaskType.CANCELLED)
+        return self._status in (TaskType.COMPLETED, TaskType.CANCELLED)
 
     def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A task blocks if it's not completed."""
