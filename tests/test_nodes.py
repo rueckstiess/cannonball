@@ -1,6 +1,6 @@
 import unittest
 import networkx as nx
-from cannonball.nodes import Node, BlockingNode, QuestionNode, ProblemNode, GoalNode
+from cannonball.nodes import Node, BlockingNode, Question, Problem, Goal
 from cannonball.utils import EdgeType
 
 # Import the classes to test using relative import
@@ -260,19 +260,19 @@ class TestBlockingNode(unittest.TestCase):
         graph = nx.DiGraph()
 
         # Test QuestionNode
-        question_resolved = QuestionNode(id="q1", name="Resolved Question", is_resolved=True)
-        question_unresolved = QuestionNode(id="q2", name="Unresolved Question", is_resolved=False)
+        question_resolved = Question(id="q1", name="Resolved Question", is_resolved=True)
+        question_unresolved = Question(id="q2", name="Unresolved Question", is_resolved=False)
 
         self.assertFalse(question_resolved.is_blocked(graph), "Resolved question should not block")
         self.assertTrue(question_unresolved.is_blocked(graph), "Unresolved question should block")
 
         # Test ProblemNode
-        problem = ProblemNode(id="p1", name="Problem")
+        problem = Problem(id="p1", name="Problem")
         self.assertTrue(problem.is_blocked(graph), "Problem should always block")
 
         # Test GoalNode
-        goal_achieved = GoalNode(id="g1", name="Achieved Goal", is_achieved=True)
-        goal_unachieved = GoalNode(id="g2", name="Unachieved Goal", is_achieved=False)
+        goal_achieved = Goal(id="g1", name="Achieved Goal", is_achieved=True)
+        goal_unachieved = Goal(id="g2", name="Unachieved Goal", is_achieved=False)
 
         self.assertFalse(goal_achieved.is_blocked(graph), "Achieved goal should not block")
         self.assertTrue(goal_unachieved.is_blocked(graph), "Unachieved goal should block")

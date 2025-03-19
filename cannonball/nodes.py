@@ -1,6 +1,7 @@
 from typing import Optional
 import networkx as nx
 from cannonball.utils import get_subgraph, EdgeType
+from enum import Enum
 
 
 class Node:
@@ -30,6 +31,10 @@ class Node:
         """Return a hash of the node ID."""
         return hash(self.id)
 
+    def __repr__(self) -> str:
+        """Return a string representation of the node."""
+        return f"{self.__class__.__name__}({self.name})"
+
 
 class BlockingNode(Node):
     """A node that can potentially block its parent nodes based on its state."""
@@ -54,13 +59,61 @@ class BlockingNode(Node):
         )
 
 
-class ThoughtNode(BlockingNode):
+class Thought(BlockingNode):
     """A thought node is a node without a marker (single `-` bullet point). It is never blocked"""
 
     pass
 
 
-class QuestionNode(BlockingNode):
+class TaskType(Enum):
+    """An enumeration of task types."""
+
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class Task(BlockingNode):
+    """A task node that blocks until completed."""
+
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        marker: Optional[str] = None,
+        ref: Optional[str] = None,
+        status: TaskType = TaskType.OPEN,
+    ) -> None:
+        """Initialize a task node with an ID, name, and optional marker and reference.
+
+        Args:
+            id: The unique ID of the node.
+            name: The name of the node.
+            marker: Optional marker for the node.
+            ref: Optional reference for the node.
+        """
+        super().__init__(id, name, marker, ref)
+        self.status = status
+
+    def is_finished(self) -> bool:
+        """Check if the task is completed or cancelled.
+
+        Returns:
+            bool: True if the task is completed or cancelled
+        """
+        return self.status in (TaskType.COMPLETED, TaskType.CANCELLED)
+
+    def is_blocked(self, graph: nx.DiGraph) -> bool:
+        """A task blocks if it's not completed."""
+
+        blocked = super().is_blocked(graph)
+
+        # A task is blocked if any of its children are blocked or if it is not finished (completed or cancellled)
+        return blocked or not self.is_finished()
+
+
+class Question(BlockingNode):
     """A question node that blocks until it's resolved."""
 
     def __init__(
@@ -87,7 +140,7 @@ class QuestionNode(BlockingNode):
         return not self.is_resolved
 
 
-class ProblemNode(BlockingNode):
+class Problem(BlockingNode):
     """A problem node that always blocks."""
 
     def is_blocked(self, graph: nx.DiGraph) -> bool:
@@ -95,7 +148,7 @@ class ProblemNode(BlockingNode):
         return True
 
 
-class GoalNode(BlockingNode):
+class Goal(BlockingNode):
     """A goal node that blocks until achieved."""
 
     def __init__(
