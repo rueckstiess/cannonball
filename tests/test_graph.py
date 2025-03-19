@@ -310,11 +310,10 @@ class TestGraphMgr:
         child_with_link = None
         grandchild = None
 
-        for node in graph_mgr.nxgraph.nodes():
-            name = graph_mgr.nxgraph.nodes[node].get("name")
-            if "Child with reference link" in name:
+        for node in graph_mgr.nxgraph:
+            if "Child with reference link" in node.name:
                 child_with_link = node
-            elif "Grandchild referencing" in name:
+            elif "Grandchild referencing" in node.name:
                 grandchild = node
 
         # Make sure we found the nodes

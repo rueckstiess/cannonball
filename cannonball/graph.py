@@ -216,7 +216,7 @@ class GraphMgr:
         # Process all root nodes
         result = ""
         for root in root_nodes:
-            if root in requires_subgraph.nodes:
+            if root in requires_subgraph:
                 result += process_node(requires_subgraph, root, 0, set())
 
         return result
