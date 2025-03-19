@@ -23,11 +23,11 @@ class GraphMgr:
         Args:
             node: The node to add.
         """
-        self.nxgraph.add_node(node.id, **node.__dict__)
+        self.nxgraph.add_node(node, **node.__dict__)
 
         # If the node has a reference, add it to the ref mapping
         if node.ref:
-            self.nodes_by_ref[node.ref] = node.id
+            self.nodes_by_ref[node.ref] = node
 
     def add_edge(self, parent_id: str, child_id: str, edge_type: EdgeType = EdgeType.REQUIRES) -> None:
         """Add a directed edge from parent to child with an edge type.
@@ -39,18 +39,18 @@ class GraphMgr:
         """
         self.nxgraph.add_edge(parent_id, child_id, type=edge_type.value)
 
-    def get_node_by_ref(self, ref: str) -> Optional[str]:
-        """Get a node ID by its reference ID.
+    def get_node_by_ref(self, ref: str) -> Optional[Node]:
+        """Get a node by its reference ID.
 
         Args:
             ref: The reference ID of the node.
 
         Returns:
-            The node ID if found, None otherwise.
+            The node if found, None otherwise.
         """
         return self.nodes_by_ref.get(ref)
 
-    def get_node_attributes(self, node_id: str) -> Dict:
+    def get_node_attributes(self, node: Node) -> Dict:
         """Get the attributes of a node.
 
         Args:
@@ -59,7 +59,7 @@ class GraphMgr:
         Returns:
             Dictionary of node attributes.
         """
-        return self.nxgraph.nodes[node_id]
+        return self.nxgraph.nodes[node]
 
     def is_acyclic(self) -> bool:
         """Check if the graph is acyclic.
@@ -69,7 +69,7 @@ class GraphMgr:
         """
         return nx.is_directed_acyclic_graph(self.nxgraph)
 
-    def topological_sort(self) -> List[str]:
+    def topological_sort(self) -> List[Node]:
         """Return nodes in topological order if graph is a DAG.
 
         Returns:
@@ -79,15 +79,15 @@ class GraphMgr:
             raise ValueError("Graph contains cycles and cannot be topologically sorted")
         return list(nx.topological_sort(self.nxgraph))
 
-    def get_roots(self) -> List[str]:
+    def get_roots(self) -> List[Node]:
         """Get all root nodes (nodes with no incoming edges).
 
         Returns:
-            List of root node IDs.
+            List of root nodes
         """
         return [n for n in self.nxgraph.nodes() if self.nxgraph.in_degree(n) == 0]
 
-    def get_leaves(self) -> List[str]:
+    def get_leaves(self) -> List[Node]:
         """Get all leaf nodes (nodes with no outgoing edges).
 
         Returns:
@@ -96,7 +96,7 @@ class GraphMgr:
         return [n for n in self.nxgraph.nodes() if self.nxgraph.out_degree(n) == 0]
 
     @classmethod
-    def from_markdown(cls, markdown: str, allow_cycles: bool = False) -> "GraphMgr":
+    def from_markdown(cls, markdown: str) -> "GraphMgr":
         """Create a graph from a markdown string.
 
         Args:
@@ -105,54 +105,50 @@ class GraphMgr:
         Returns:
             A GraphMgr instance containing the constructed DAG.
         """
-        instance = cls(allow_cycles)
+        instance = cls()
         ast = cls.parser.parse(markdown)
 
         # First pass: create nodes and collect reference links
-        item_to_node_id = {}  # Maps ListItem objects to node IDs
-        node_id_to_links = {}  # Maps node IDs to their reference links
+        item_to_node = {}  # Maps ListItem objects to node IDs
+        node_to_links = {}  # Maps node IDs to their reference links
 
         for list_item, parent_item, level in walk_list_items(ast):
             text = get_raw_text_from_listtem(list_item)
             marker, ref, ref_links = extract_node_marker_and_refs(text)
 
             # Always use a UUID for node ID to ensure uniqueness
-            node_id = str(uuid.uuid4())[:8]
 
             # Create and add the node
-            node = Node(id=node_id, name=text, marker=marker, ref=ref)
+            node = Node(id=str(uuid.uuid4())[:8], name=text, marker=marker, ref=ref)
             instance.add_node(node)
 
             # Map the ListItem to its node ID for the second pass
-            item_to_node_id[list_item] = node_id
+            item_to_node[list_item] = node
 
             # Store the reference links for the second pass
             if ref_links:
-                node_id_to_links[node_id] = ref_links
+                node_to_links[node] = ref_links
 
         # Second pass: create all edges
         for list_item, parent_item, _ in walk_list_items(ast):
-            node_id = item_to_node_id.get(list_item)
-            if not node_id:
+            node = item_to_node.get(list_item)
+            if not node:
                 continue
 
             # Create parent-child (requires) edge if applicable
-            if parent_item and parent_item in item_to_node_id:
-                parent_id = item_to_node_id[parent_item]
-                instance.add_edge(parent_id, node_id, edge_type=EdgeType.REQUIRES)
+            if parent_item and parent_item in item_to_node:
+                parent = item_to_node[parent_item]
+                instance.add_edge(parent, node, edge_type=EdgeType.REQUIRES)
 
             # Process reference links for this node
-            if node_id in node_id_to_links:
-                for ref_id in node_id_to_links[node_id]:
+            if node in node_to_links:
+                for ref_id in node_to_links[node]:
                     # Find the node with this reference ID
-                    target_node_id = instance.get_node_by_ref(ref_id)
-                    if target_node_id and target_node_id != node_id:  # Avoid self-references
+                    target_node = instance.get_node_by_ref(ref_id)
+                    if target_node and target_node != node:  # Avoid self-references
                         # Create a reference edge from source to target
-                        instance.add_edge(node_id, target_node_id, edge_type=EdgeType.REFERENCES)
+                        instance.add_edge(node, target_node, edge_type=EdgeType.REFERENCES)
 
-        # Ensure the graph is acyclic (unless cycles are allowed)
-        if not instance.allow_cycles and not instance.is_acyclic():
-            raise ValueError("Graph contains cycles and cannot be constructed as a DAG")
         return instance
 
     def to_dict(self) -> Dict:
@@ -166,7 +162,7 @@ class GraphMgr:
             "edges": [{"source": s, "target": t, **d} for s, t, d in self.nxgraph.edges(data=True)],
         }
 
-    def to_markdown(self, root_nodes: Optional[List[str]] = None, indent: int | str = 2) -> str:
+    def to_markdown(self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2) -> str:
         """Convert the graph back to a markdown string with hierarchical list items.
 
         Args:
@@ -199,16 +195,16 @@ class GraphMgr:
             indent = " " * indent
 
         # Recursive function to process each node and its children
-        def process_node(graph: nx.DiGraph, node_id: str, level: int, visited: set) -> str:
-            if node_id in visited:
+        def process_node(graph: nx.DiGraph, node: Node, level: int, visited: set) -> str:
+            if node in visited:
                 return ""  # Prevent cycles
 
-            visited.add(node_id)
-            attrs = self.get_node_attributes(node_id)
+            visited.add(node)
+            attrs = self.get_node_attributes(node)
             result = indent * level + "- " + attrs.get("name", "") + "\n"
 
             # Sort children to ensure consistent output
-            children = list(graph.successors(node_id))
+            children = list(graph.successors(node))
 
             for child in children:
                 # Only process children that weren't handled as reference links

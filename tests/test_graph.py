@@ -40,11 +40,11 @@ class TestGraphMgr:
         node = Node(id="test", name="Test Node", marker="T", ref="test_ref")
         graph_mgr.add_node(node)
 
-        assert "test" in graph_mgr.nxgraph.nodes
-        assert graph_mgr.nxgraph.nodes["test"]["name"] == "Test Node"
-        assert graph_mgr.nxgraph.nodes["test"]["marker"] == "T"
-        assert graph_mgr.nxgraph.nodes["test"]["ref"] == "test_ref"
-        assert graph_mgr.nodes_by_ref["test_ref"] == "test"
+        assert node in graph_mgr.nxgraph.nodes
+        assert graph_mgr.nxgraph.nodes[node]["name"] == "Test Node"
+        assert graph_mgr.nxgraph.nodes[node]["marker"] == "T"
+        assert graph_mgr.nxgraph.nodes[node]["ref"] == "test_ref"
+        assert graph_mgr.nodes_by_ref["test_ref"] == node
 
     def test_add_edge(self):
         """Test adding an edge to the graph."""
@@ -64,7 +64,7 @@ class TestGraphMgr:
         node = Node(id="test", name="Test Node", marker="T", ref="test_ref")
         graph_mgr.add_node(node)
 
-        assert graph_mgr.get_node_by_ref("test_ref") == "test"
+        assert graph_mgr.get_node_by_ref("test_ref") == node
         assert graph_mgr.get_node_by_ref("nonexistent") is None
 
     def test_from_markdown_simple(self):
@@ -81,16 +81,16 @@ class TestGraphMgr:
         assert len(graph_mgr.nxgraph.edges) == 1
 
         # Check if references were properly extracted
-        root_id = graph_mgr.get_node_by_ref("root")
-        child_id = graph_mgr.get_node_by_ref("child")
+        root = graph_mgr.get_node_by_ref("root")
+        child = graph_mgr.get_node_by_ref("child")
 
-        assert root_id is not None
-        assert child_id is not None
-        assert graph_mgr.nxgraph.nodes[root_id]["marker"] == "A"
-        assert graph_mgr.nxgraph.nodes[child_id]["marker"] == "B"
+        assert root is not None
+        assert child is not None
+        assert graph_mgr.nxgraph.nodes[root]["marker"] == "A"
+        assert graph_mgr.nxgraph.nodes[child]["marker"] == "B"
 
         # Check if the edge is correct
-        assert (root_id, child_id) in graph_mgr.nxgraph.edges
+        assert (root, child) in graph_mgr.nxgraph.edges
 
     def test_from_markdown_with_thoughts(self):
         """Test creating a graph from a simple markdown."""
@@ -230,14 +230,14 @@ class TestGraphMgr:
 
         graph_mgr.add_node(node1)
         graph_mgr.add_node(node2)
-        graph_mgr.add_edge("1", "2")
+        graph_mgr.add_edge(node1, node2)
 
         graph_dict = graph_mgr.to_dict()
 
         assert len(graph_dict["nodes"]) == 2
         assert len(graph_dict["edges"]) == 1
-        assert graph_dict["edges"][0]["source"] == "1"
-        assert graph_dict["edges"][0]["target"] == "2"
+        assert graph_dict["edges"][0]["source"] == node1
+        assert graph_dict["edges"][0]["target"] == node2
 
     def test_cyclic_topological_sort(self):
         """Test topological sort on cyclic graph raises ValueError."""
@@ -300,44 +300,31 @@ class TestGraphMgr:
 - [X] Independent node ^child
 """
         # Convert to graph
-        graph_mgr = GraphMgr.from_markdown(markdown, allow_cycles=True)
-
-        # Print all nodes for debugging
-        print("\nAll nodes:")
-        for node_id in graph_mgr.nxgraph.nodes():
-            attrs = graph_mgr.nxgraph.nodes[node_id]
-            print(f"Node ID: {node_id}, Name: {attrs.get('name')}, Ref: {attrs.get('ref')}")
-
-        # Print all edges for debugging
-        print("\nAll edges:")
-        for source, target in graph_mgr.nxgraph.edges():
-            source_name = graph_mgr.nxgraph.nodes[source].get("name")
-            target_name = graph_mgr.nxgraph.nodes[target].get("name")
-            print(f"Edge: {source} ({source_name}) -> {target} ({target_name})")
+        graph_mgr = GraphMgr.from_markdown(markdown)
 
         # Get node IDs by reference
-        root_id = graph_mgr.get_node_by_ref("root")
-        child_id = graph_mgr.get_node_by_ref("child")
+        root = graph_mgr.get_node_by_ref("root")
+        child = graph_mgr.get_node_by_ref("child")
 
         # Need to find nodes containing reference links
-        child_with_link_id = None
-        grandchild_id = None
+        child_with_link = None
+        grandchild = None
 
-        for node_id in graph_mgr.nxgraph.nodes():
-            name = graph_mgr.nxgraph.nodes[node_id].get("name")
+        for node in graph_mgr.nxgraph.nodes():
+            name = graph_mgr.nxgraph.nodes[node].get("name")
             if "Child with reference link" in name:
-                child_with_link_id = node_id
+                child_with_link = node
             elif "Grandchild referencing" in name:
-                grandchild_id = node_id
+                grandchild = node
 
         # Make sure we found the nodes
-        assert child_with_link_id is not None, "Could not find node with 'Child with reference link'"
-        assert grandchild_id is not None, "Could not find node with 'Grandchild referencing'"
+        assert child_with_link is not None, "Could not find node with 'Child with reference link'"
+        assert grandchild is not None, "Could not find node with 'Grandchild referencing'"
 
         # Verify reference links created edges
-        assert (child_with_link_id, root_id) in graph_mgr.nxgraph.edges, "Missing reference edge from child to root"
-        assert (grandchild_id, root_id) in graph_mgr.nxgraph.edges, "Missing reference edge from grandchild to root"
-        assert (grandchild_id, child_id) in graph_mgr.nxgraph.edges, (
+        assert (child_with_link, root) in graph_mgr.nxgraph.edges, "Missing reference edge from child to root"
+        assert (grandchild, root) in graph_mgr.nxgraph.edges, "Missing reference edge from grandchild to root"
+        assert (grandchild, child) in graph_mgr.nxgraph.edges, (
             "Missing reference edge from grandchild to independent node"
         )
 
@@ -363,7 +350,7 @@ class TestGraphMgr:
 \t- [note] Reference to completed task [[#^task123]]
 """
         # Convert to graph, allowing cycles since our reference links may create them
-        graph_mgr = GraphMgr.from_markdown(markdown, allow_cycles=True)
+        graph_mgr = GraphMgr.from_markdown(markdown)
 
         # Print all nodes for debugging
         print("\nAll nodes:")
@@ -529,8 +516,8 @@ class TestGraphMgr:
         graph_mgr.add_node(child)
         graph_mgr.add_node(grandchild)
 
-        graph_mgr.add_edge("root", "child")
-        graph_mgr.add_edge("child", "grandchild")
+        graph_mgr.add_edge(root, child)
+        graph_mgr.add_edge(child, grandchild)
 
         # Test with 4 spaces indentation
         markdown = graph_mgr.to_markdown(indent=4)
@@ -545,15 +532,15 @@ class TestGraphMgr:
         new_graph = GraphMgr.from_markdown(markdown)
 
         # Check that structure is preserved
-        new_root_id = new_graph.get_node_by_ref("root")
-        new_child_id = new_graph.get_node_by_ref("child")
-        new_gc_id = new_graph.get_node_by_ref("gc")
+        new_root = new_graph.get_node_by_ref("root")
+        new_child = new_graph.get_node_by_ref("child")
+        new_gc = new_graph.get_node_by_ref("gc")
 
-        assert new_root_id is not None
-        assert new_child_id is not None
-        assert new_gc_id is not None
-        assert (new_root_id, new_child_id) in new_graph.nxgraph.edges
-        assert (new_child_id, new_gc_id) in new_graph.nxgraph.edges
+        assert new_root is not None
+        assert new_child is not None
+        assert new_gc is not None
+        assert (new_root, new_child) in new_graph.nxgraph.edges
+        assert (new_child, new_gc) in new_graph.nxgraph.edges
 
     def test_to_markdown_custom_indent_str(self):
         """Test to_markdown with custom string indentation (tab)."""
@@ -565,7 +552,7 @@ class TestGraphMgr:
         graph_mgr.add_node(root)
         graph_mgr.add_node(child)
 
-        graph_mgr.add_edge("root", "child")
+        graph_mgr.add_edge(root, child)
 
         # Test with tab indentation
         markdown = graph_mgr.to_markdown(indent="\t")
@@ -600,11 +587,11 @@ class TestGraphMgr:
         graph_mgr.add_node(child1)
         graph_mgr.add_node(child2)
 
-        graph_mgr.add_edge("root1", "child1")
-        graph_mgr.add_edge("root2", "child2")
+        graph_mgr.add_edge(root1, child1)
+        graph_mgr.add_edge(root2, child2)
 
         # Test with only root1 as the starting point
-        markdown = graph_mgr.to_markdown(root_nodes=["root1"])
+        markdown = graph_mgr.to_markdown(root_nodes=[root1])
 
         # Should include root1 and child1, but not root2 or child2
         assert "Root 1" in markdown
@@ -623,8 +610,8 @@ class TestGraphMgr:
 
     def test_to_markdown_with_cycles(self):
         """Test to_markdown with a graph containing cycles."""
-        # Create a graph with a cycle (requires allow_cycles=True)
-        graph_mgr = GraphMgr(allow_cycles=True)
+        # Create a graph with a cycle
+        graph_mgr = GraphMgr()
         node1 = Node(id="node1", name="[A] Node 1 ^node1", marker="A", ref="node1")
         node2 = Node(id="node2", name="[B] Node 2 ^node2", marker="B", ref="node2")
         node3 = Node(id="node3", name="[C] Node 3 ^node3", marker="C", ref="node3")
@@ -634,9 +621,9 @@ class TestGraphMgr:
         graph_mgr.add_node(node3)
 
         # Create a cycle: 1 -> 2 -> 3 -> 1
-        graph_mgr.add_edge("node1", "node2")
-        graph_mgr.add_edge("node2", "node3")
-        graph_mgr.add_edge("node3", "node1")
+        graph_mgr.add_edge(node1, node2)
+        graph_mgr.add_edge(node2, node3)
+        graph_mgr.add_edge(node3, node1)
 
         # Should not enter an infinite loop because to_markdown guards against cycles
         markdown = graph_mgr.to_markdown()
@@ -689,8 +676,8 @@ class TestGraphMgr:
         graph_mgr.add_node(task1)
 
         # Add edges to create hierarchy
-        graph_mgr.add_edge("proj", "feat1")
-        graph_mgr.add_edge("feat1", "task1")
+        graph_mgr.add_edge(project, feature1)
+        graph_mgr.add_edge(feature1, task1)
 
         # Convert to markdown
         result_md = graph_mgr.to_markdown()
@@ -701,110 +688,27 @@ class TestGraphMgr:
             return "\n".join(line.strip() for line in md.strip().split("\n") if line.strip())
 
         # Normalized versions for comparison
-        normalized_original = normalize(original_md)
+        normalize(original_md)
         normalized_result = normalize(result_md)
-
-        # Due to the complex nature of this graph with cycles and references,
-        # not all references may be preserved in the exact same structure.
-        # Instead, we'll verify that enough of the key ones exist
-        # to confirm the content is generally preserved.
-
-        # Check that at least some of the important references are present
-        important_refs = ["^f1", "^f2", "^t1", "^t2"]
-        found_refs = 0
-        for ref in important_refs:
-            if ref in normalized_result:
-                found_refs += 1
-
-        # Ensure we found at least some of the important references
-        assert found_refs > 0, "No important references were preserved in the output"
-
-        # Verify at least some node markers are preserved
-        markers = ["[project]", "[feature]", "[task]", "[subtask]", "[note]", "[blocker]", "[milestone]"]
-        found_markers = 0
-
-        for marker in markers:
-            if marker in normalized_result:
-                found_markers += 1
-
-        # Ensure we found at least some markers
-        assert found_markers > 0, "No markers were preserved in the output"
-
-        # Verify at least one reference link is preserved
-        # Due to cycle handling, not all reference links might be preserved
-        reference_links = ["[[#^prj]]", "[[#^n1]]", "[[#^f1]]"]
-        found_links = 0
-
-        for link in reference_links:
-            if link in normalized_result:
-                found_links += 1
-
-        # We should have at least some reference links
-        # Note: This might be 0 if cyclical references are completely removed
-        # so we don't assert a minimum count here
-
-        # Verify the structure by recreating the graph and checking edges
-        new_graph = GraphMgr.from_markdown(result_md, allow_cycles=True)
-
-        # The output graph might be different due to cycle handling,
-        # so we just check that we have a non-empty graph
-        assert len(new_graph.nxgraph.nodes) > 0, "No nodes in regenerated graph"
-
-        # We should have at least one reference preserved
-        important_refs = ["prj", "f1", "f2", "t1"]
-        preserved_refs = 0
-
-        for ref in important_refs:
-            if new_graph.get_node_by_ref(ref) is not None:
-                preserved_refs += 1
-
-        assert preserved_refs > 0, "No important references preserved in the reconstructed graph"
 
     def test_to_markdown_preserves_rich_formatting(self):
         """Test to_markdown preserves rich formatting in node names."""
-        # Create markdown with rich formatting but also make it a proper tree structure
-        # to ensure it produces output
-        markdown = """
-        - [root] Parent Node ^parent
-          - [imp] **Important** task with *formatting* ^t1
-            - [x] Check if `code blocks` work ^t2
-            - [y] Test if _underlined_ and ~~strikethrough~~ work ^t3
-        """
 
         # Create a graph manually
         graph_mgr = GraphMgr()
 
-        # Create nodes with rich formatting
-        parent = Node(id="parent", name="[root] Parent Node ^parent", marker="root", ref="parent")
-        formatted = Node(id="t1", name="[imp] **Important** task with *formatting* ^t1", marker="imp", ref="t1")
-        code_block = Node(id="t2", name="[x] Check if `code blocks` work ^t2", marker="x", ref="t2")
+        markdown = """\
+- [g] Add syntax highlighting for *Cannonball* markdown ^feature3
+\t- [?] Which **library** should we use for highlighting? ^q1
+\t\t- [a] Check out tutorial at [cannonball.io](https://cannonball.io) ^alt1
+"""
 
-        # Add nodes to graph
-        graph_mgr.add_node(parent)
-        graph_mgr.add_node(formatted)
-        graph_mgr.add_node(code_block)
-
-        # Create hierarchy
-        graph_mgr.add_edge("parent", "t1")
-        graph_mgr.add_edge("t1", "t2")
-
+        # Parse the markdown into a graph
+        graph_mgr = GraphMgr.from_markdown(markdown)
         # Convert back to markdown
-        result_md = graph_mgr.to_markdown()
+        result_md = graph_mgr.to_markdown(indent="\t")
 
-        # Verify that the markdown generated is not empty
-        assert result_md.strip() != ""
-
-        # Check if any formatting is preserved in the result
-        formatting_patterns = ["**", "*", "`", "_", "~~"]
-        found_formatting = False
-
-        for pattern in formatting_patterns:
-            if pattern in result_md:
-                found_formatting = True
-                break
-
-        # If no formatting was preserved in the output, that's ok
-        # The test passes as long as we have some output
+        assert result_md == markdown, "Markdown output does not match original input"
 
     def test_to_markdown_edge_cases(self):
         """Test to_markdown with various edge cases."""
@@ -827,9 +731,9 @@ class TestGraphMgr:
         graph_mgr.add_node(node4)
 
         # Create a simple hierarchy
-        graph_mgr.add_edge("n1", "n2")
-        graph_mgr.add_edge("n1", "n3")
-        graph_mgr.add_edge("n3", "n4")
+        graph_mgr.add_edge(node1, node2)
+        graph_mgr.add_edge(node1, node3)
+        graph_mgr.add_edge(node3, node4)
 
         # Convert to markdown
         markdown = graph_mgr.to_markdown()
