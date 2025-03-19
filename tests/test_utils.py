@@ -164,7 +164,6 @@ class TestGetRawTextFromListItem:
     def test_valid_list_item_with_paragraph(self):
         """Test extraction of text from a valid ListItem with a Paragraph."""
         from marko import Markdown
-        from marko.inline import RawText, StrongEmphasis
 
         # Create a simple markdown parser
         md = Markdown()
@@ -180,7 +179,9 @@ class TestGetRawTextFromListItem:
         # Test with formatted text (bold)
         list_md_bold = "- Sample **bold** text"
         ast_bold = md.parse(list_md_bold)
-        list_item_bold = ast_bold.children[0].children[0]  # Get the ListItem inside the List
+        list_item_bold = ast_bold.children[0].children[
+            0
+        ]  # Get the ListItem inside the List
 
         result_bold = get_raw_text_from_listtem(list_item_bold)
         assert result_bold == "Sample **bold** text"
@@ -342,7 +343,9 @@ class TestPrintAst:
         # Mock get_raw_text_from_listtem function to return predictable text
         with patch("cannonball.utils.get_raw_text_from_listtem") as mock_get_text:
             mock_get_text.side_effect = (
-                lambda item: "Item 1" if item == list_item1 else ("Nested Item" if item == nested_item else "Item 2")
+                lambda item: "Item 1"
+                if item == list_item1
+                else ("Nested Item" if item == nested_item else "Item 2")
             )
 
             # Print the AST
@@ -430,12 +433,16 @@ class TestGetSubgraph(unittest.TestCase):
         self.assertEqual(len(subgraph.edges), 2)  # n2->n3, n3->n4
 
         # Another combined test - n1 with REFERENCES edges only includes n1->n3
-        subgraph = get_subgraph(self.graph, root_node="n1", edge_type=EdgeType.REFERENCES)
+        subgraph = get_subgraph(
+            self.graph, root_node="n1", edge_type=EdgeType.REFERENCES
+        )
         self.assertEqual(len(subgraph.nodes), 3)  # n1, n3, n6
         self.assertEqual(len(subgraph.edges), 2)  # n1->n3->n6
 
         # Test with n3 as root and REFERENCES edges
-        subgraph = get_subgraph(self.graph, root_node="n3", edge_type=EdgeType.REFERENCES)
+        subgraph = get_subgraph(
+            self.graph, root_node="n3", edge_type=EdgeType.REFERENCES
+        )
         self.assertEqual(len(subgraph.nodes), 2)  # n3, n6
         self.assertEqual(len(subgraph.edges), 1)  # n3->n6
 

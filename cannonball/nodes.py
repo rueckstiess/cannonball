@@ -6,7 +6,13 @@ from cannonball.utils import get_subgraph, EdgeType
 class Node:
     """A node in the graph."""
 
-    def __init__(self, id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        marker: Optional[str] = None,
+        ref: Optional[str] = None,
+    ) -> None:
         """Initialize a new node with an ID, name, and optional marker and reference.
 
         Args:
@@ -55,7 +61,11 @@ class BlockingNode(Node):
         """
         subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
         return (
-            any(getattr(node, "is_blocking", lambda _: False)(subgraph) for node in subgraph if node != self)
+            any(
+                getattr(node, "is_blocking", lambda _: False)(subgraph)
+                for node in subgraph
+                if node != self
+            )
             if subgraph
             else False
         )
@@ -65,7 +75,12 @@ class QuestionNode(BlockingNode):
     """A question node that blocks until it's resolved."""
 
     def __init__(
-        self, id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None, is_resolved: bool = False
+        self,
+        id: str,
+        name: str,
+        marker: Optional[str] = None,
+        ref: Optional[str] = None,
+        is_resolved: bool = False,
     ) -> None:
         """Initialize a question node with an ID, name, and optional marker and reference.
 
@@ -95,7 +110,12 @@ class GoalNode(BlockingNode):
     """A goal node that blocks until achieved."""
 
     def __init__(
-        self, id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None, is_achieved: bool = False
+        self,
+        id: str,
+        name: str,
+        marker: Optional[str] = None,
+        ref: Optional[str] = None,
+        is_achieved: bool = False,
     ) -> None:
         """Initialize a goal node with an ID, name, and optional marker and reference.
 

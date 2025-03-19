@@ -1,5 +1,10 @@
 from .nodes import Node
-from .utils import get_raw_text_from_listtem, walk_list_items, extract_node_marker_and_refs, EdgeType
+from .utils import (
+    get_raw_text_from_listtem,
+    walk_list_items,
+    extract_node_marker_and_refs,
+    EdgeType,
+)
 import networkx as nx
 from marko import Markdown
 from typing import Dict, Optional, List
@@ -29,7 +34,9 @@ class GraphMgr:
         if node.ref:
             self.nodes_by_ref[node.ref] = node
 
-    def add_edge(self, parent_id: str, child_id: str, edge_type: EdgeType = EdgeType.REQUIRES) -> None:
+    def add_edge(
+        self, parent_id: str, child_id: str, edge_type: EdgeType = EdgeType.REQUIRES
+    ) -> None:
         """Add a directed edge from parent to child with an edge type.
 
         Args:
@@ -147,7 +154,9 @@ class GraphMgr:
                     target_node = instance.get_node_by_ref(ref_id)
                     if target_node and target_node != node:  # Avoid self-references
                         # Create a reference edge from source to target
-                        instance.add_edge(node, target_node, edge_type=EdgeType.REFERENCES)
+                        instance.add_edge(
+                            node, target_node, edge_type=EdgeType.REFERENCES
+                        )
 
         return instance
 
@@ -159,10 +168,15 @@ class GraphMgr:
         """
         return {
             "nodes": [self.nxgraph.nodes[n] for n in self.nxgraph.nodes()],
-            "edges": [{"source": s, "target": t, **d} for s, t, d in self.nxgraph.edges(data=True)],
+            "edges": [
+                {"source": s, "target": t, **d}
+                for s, t, d in self.nxgraph.edges(data=True)
+            ],
         }
 
-    def to_markdown(self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2) -> str:
+    def to_markdown(
+        self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2
+    ) -> str:
         """Convert the graph back to a markdown string with hierarchical list items.
 
         Args:
@@ -185,7 +199,9 @@ class GraphMgr:
 
         # Get a list of edges with type="requires"
         requires_edges = [
-            (u, v) for u, v, data in self.nxgraph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
+            (u, v)
+            for u, v, data in self.nxgraph.edges(data=True)
+            if data.get("type") == EdgeType.REQUIRES.value
         ]
 
         # Create the subgraph
@@ -195,7 +211,9 @@ class GraphMgr:
             indent = " " * indent
 
         # Recursive function to process each node and its children
-        def process_node(graph: nx.DiGraph, node: Node, level: int, visited: set) -> str:
+        def process_node(
+            graph: nx.DiGraph, node: Node, level: int, visited: set
+        ) -> str:
             if node in visited:
                 return ""  # Prevent cycles
 
