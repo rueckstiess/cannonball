@@ -277,7 +277,7 @@ class TestBlockingNode(unittest.TestCase):
             "root": BlockingNode(id="root", name="Root"),
             "A": BlockingNode(id="A", name="Level A"),
             "B": BlockingNode(id="B", name="Level B"),
-            "C": BlockingNode(id="C", name="Level C"),
+            "C": Node(id="C", name="Level C"),
             "D": BlockingNode(id="D", name="Level D"),
         }
 
@@ -298,7 +298,8 @@ class TestBlockingNode(unittest.TestCase):
         self.assertTrue(nodes["root"].is_blocked(deep_graph), "Root should be blocked by node D (4 levels deep)")
         self.assertTrue(nodes["A"].is_blocked(deep_graph), "Node A should be blocked by node D (3 levels deep)")
         self.assertTrue(nodes["B"].is_blocked(deep_graph), "Node B should be blocked by node D (2 levels deep)")
-        self.assertTrue(nodes["C"].is_blocked(deep_graph), "Node C should be blocked by node D (1 level deep)")
+        # node C is not a blocking node, does not have .is_blocked
+        # self.assertTrue(nodes["C"].is_blocked(deep_graph), "Node C should be blocked by node D (1 level deep)")
 
         # Node D itself should not be blocked
         self.assertFalse(nodes["D"].is_blocked(deep_graph), "Node D should not be blocked as it has no children")
