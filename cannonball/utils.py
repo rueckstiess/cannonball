@@ -165,3 +165,42 @@ def extract_node_marker_and_refs(text: str) -> Tuple[Optional[str], str, list]:
         ref = ref_match.group(1)
 
     return node_marker, ref, ref_links
+
+
+def extract_str_content(node: str) -> str:
+    """Get the content without markers or references.
+
+    Args:
+        node: A string representing a node in markdown format
+
+    Returns:
+        The cleaned content without markers or references
+
+    Examples:
+        get_content("- Task 1") returns "Task 1"
+        get_content("  - [ ] Task 2") returns "Task 2"
+        get_content("      - [x] Task 3") returns "Task 3"
+        get_content("- [D] Task 4 [[#^ref]]") returns "Task 4"
+        get_content("- [a] Task 5 ^ref") returns "Task 5"
+    """
+    # Remove leading whitespace and bullet points
+    text = re.sub(r"^\s*-\s*", "", node)
+
+    # Extract marker and references
+    marker, ref, ref_links = extract_node_marker_and_refs(text)
+
+    # Remove marker if present
+    if marker is not None:
+        text = re.sub(r"^\s*\[" + re.escape(marker) + r"\]\s*", "", text)
+
+    # Remove references (^ref)
+    if ref is not None:
+        text = re.sub(r"\s*\^" + re.escape(ref) + r"\b", "", text)
+
+    # Remove reference links ([[#^ref]])
+    text = re.sub(r"\[\[#\^[^\]]+\]\]", "", text)
+
+    # Trim any extra whitespace
+    text = text.strip()
+
+    return text

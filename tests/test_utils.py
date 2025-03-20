@@ -10,6 +10,7 @@ from cannonball.utils import (
     print_ast,
     EdgeType,
     get_subgraph,
+    extract_str_content,
 )
 
 import networkx as nx
@@ -593,3 +594,17 @@ class TestGetSubgraph(unittest.TestCase):
         self.assertTrue(4.4 in subgraph.nodes)
         self.assertFalse(3 in subgraph.nodes)
         self.assertEqual(len(subgraph.edges), 2)  # n1->n2 and n2->n4
+
+
+class TestExtractStrContent(unittest.TestCase):
+    def test_extract_str_content(self):
+        """Test the get_content function."""
+        test_cases = [
+            ("- [x] Task 1", "Task 1"),
+            ("- [ ] Task 2", "Task 2"),
+            ("  - [D] Task 3 [[#^ref]]", "Task 3"),
+            ("- [a] Task 4 ^ref", "Task 4"),
+            ("      - Task 5", "Task 5"),
+        ]
+        for input_str, expected_output in test_cases:
+            assert extract_str_content(input_str) == expected_output, f"Failed for input: {input_str}"

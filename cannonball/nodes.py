@@ -70,6 +70,8 @@ class Node:
             return Goal(id, name, marker, ref)
         if marker == "P":
             return Problem(id, name, marker, ref)
+        if marker == "a":
+            return Alternative(id, name, marker, ref)
 
         # Fallback to a generic BlockingNode if no specific type is matched
         return BlockingNode(id, name, marker, ref)
@@ -119,6 +121,39 @@ class Thought(BlockingNode):
     pass
 
 
+class AlternativeContainer(BlockingNode):
+    def is_blocked(self, graph):
+        # Check if any non-alternative children are blocked (regular BlockingNode behavior)
+        non_alternative_subgraph = get_subgraph(
+            graph, root_node=self, node_filter=lambda n: not isinstance(n, Alternative), edge_filter=EdgeType.REQUIRES
+        )
+        blocked = (
+            any(
+                getattr(node, "is_blocked", lambda _: False)(non_alternative_subgraph)
+                for node in non_alternative_subgraph.successors(self)
+            )
+            if non_alternative_subgraph
+            else False
+        )
+
+        if blocked:
+            return True
+
+        alternative_root = self
+
+        # Get all alternatives in our subtree but without other AlternativeContainers
+        subgraph = get_subgraph(
+            graph, root_node=alternative_root, node_filter=lambda n: not isinstance(n, AlternativeContainer)
+        )
+        if len(subgraph) == 0:
+            return False
+
+        viable_alternatives = list(nx.dfs_preorder_nodes(subgraph, source=alternative_root))
+
+        # We're unblocked if exactly one alternative is viable
+        return len(viable_alternatives) > 1
+
+
 class TaskType(Enum):
     """An enumeration of task types."""
 
@@ -128,7 +163,7 @@ class TaskType(Enum):
     CANCELLED = "cancelled"
 
 
-class Task(BlockingNode):
+class Task(AlternativeContainer):
     """A task node that blocks until completed."""
 
     def __init__(
@@ -187,7 +222,7 @@ class Task(BlockingNode):
         return blocked or not self.is_finished()
 
 
-class Question(BlockingNode):
+class Question(AlternativeContainer):
     """A question node that blocks until it's resolved."""
 
     def __init__(
@@ -226,7 +261,7 @@ class Problem(BlockingNode):
         return True
 
 
-class Goal(BlockingNode):
+class Goal(AlternativeContainer):
     """A goal node that blocks until achieved."""
 
     def __init__(
@@ -254,3 +289,11 @@ class Goal(BlockingNode):
         blocked = super().is_blocked(graph)
         # A goal is blocked if any of its children are blocked or if it is not achieved
         return blocked or not self.is_achieved
+
+
+class Alternative(BlockingNode):
+    pass
+
+
+class Decision(BlockingNode):
+    pass
