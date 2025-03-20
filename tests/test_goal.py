@@ -55,8 +55,12 @@ class TestGoal(unittest.TestCase):
         graph = nx.DiGraph()
 
         parent_goal = Goal(id="parent", name="Parent Goal", is_achieved=True)
-        child_node_blocked = BlockingNodeForTesting(id="child1", name="Child Node 1", blocks=True)
-        child_node_unblocked = BlockingNodeForTesting(id="child2", name="Child Node 2", blocks=False)
+        child_node_blocked = BlockingNodeForTesting(
+            id="child1", name="Child Node 1", blocks=True
+        )
+        child_node_unblocked = BlockingNodeForTesting(
+            id="child2", name="Child Node 2", blocks=False
+        )
 
         graph.add_nodes_from([parent_goal, child_node_blocked, child_node_unblocked])
         graph.add_edge(parent_goal, child_node_blocked, type=EdgeType.REQUIRES.value)
@@ -70,8 +74,12 @@ class TestGoal(unittest.TestCase):
         graph = nx.DiGraph()
 
         parent_goal = Goal(id="parent", name="Parent Goal", is_achieved=True)
-        child_node1 = BlockingNodeForTesting(id="child1", name="Child Node 1", blocks=False)
-        child_node2 = BlockingNodeForTesting(id="child2", name="Child Node 2", blocks=False)
+        child_node1 = BlockingNodeForTesting(
+            id="child1", name="Child Node 1", blocks=False
+        )
+        child_node2 = BlockingNodeForTesting(
+            id="child2", name="Child Node 2", blocks=False
+        )
 
         graph.add_nodes_from([parent_goal, child_node1, child_node2])
         graph.add_edge(parent_goal, child_node1, type=EdgeType.REQUIRES.value)
@@ -119,7 +127,9 @@ class TestGoal(unittest.TestCase):
 
         parent_goal = Goal(id="parent", name="Parent Goal", is_achieved=True)
         required_child = Goal(id="required", name="Required Child", is_achieved=False)
-        referenced_child = Goal(id="referenced", name="Referenced Child", is_achieved=False)
+        referenced_child = Goal(
+            id="referenced", name="Referenced Child", is_achieved=False
+        )
 
         graph.add_nodes_from([parent_goal, required_child, referenced_child])
         graph.add_edge(parent_goal, required_child, type=EdgeType.REQUIRES.value)
@@ -163,8 +173,12 @@ class TestGoal(unittest.TestCase):
         graph = nx.DiGraph()
 
         parent_goal = Goal(id="parent", name="Parent Goal", is_achieved=True)
-        blocking_node = BlockingNodeForTesting(id="blocker", name="Blocker", blocks=True)
-        non_blocking_node = BlockingNodeForTesting(id="non_blocker", name="Non-Blocker", blocks=False)
+        blocking_node = BlockingNodeForTesting(
+            id="blocker", name="Blocker", blocks=True
+        )
+        non_blocking_node = BlockingNodeForTesting(
+            id="non_blocker", name="Non-Blocker", blocks=False
+        )
 
         graph.add_nodes_from([parent_goal, blocking_node, non_blocking_node])
         graph.add_edge(parent_goal, blocking_node, type=EdgeType.REQUIRES.value)
@@ -178,7 +192,9 @@ class TestGoal(unittest.TestCase):
         empty_graph = nx.DiGraph()  # Graph with no edges
 
         achieved_goal = Goal(id="achieved", name="Achieved Goal", is_achieved=True)
-        unachieved_goal = Goal(id="unachieved", name="Unachieved Goal", is_achieved=False)
+        unachieved_goal = Goal(
+            id="unachieved", name="Unachieved Goal", is_achieved=False
+        )
 
         empty_graph.add_nodes_from([achieved_goal, unachieved_goal])
 

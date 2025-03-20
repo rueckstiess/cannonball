@@ -53,7 +53,10 @@ class BlockingNode(Node):
         """
         subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
         return (
-            any(getattr(node, "is_blocked", lambda _: False)(subgraph) for node in subgraph.successors(self))
+            any(
+                getattr(node, "is_blocked", lambda _: False)(subgraph)
+                for node in subgraph.successors(self)
+            )
             if subgraph
             else False
         )

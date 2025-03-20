@@ -27,7 +27,9 @@ class TestQuestion(unittest.TestCase):
 
     def test_question_custom_initialization(self):
         """Test that a Question can be initialized with custom values."""
-        question = Question(id="q2", name="Question 2", marker="?", ref="REF123", is_resolved=True)
+        question = Question(
+            id="q2", name="Question 2", marker="?", ref="REF123", is_resolved=True
+        )
         self.assertEqual(question.id, "q2")
         self.assertEqual(question.name, "Question 2")
         self.assertEqual(question.marker, "?")
@@ -54,13 +56,25 @@ class TestQuestion(unittest.TestCase):
         """Test that a question is blocked if any of its children are blocked."""
         graph = nx.DiGraph()
 
-        parent_question = Question(id="parent", name="Parent Question", is_resolved=True)
-        child_node_blocked = BlockingNodeForTesting(id="child1", name="Child Node 1", blocks=True)
-        child_node_unblocked = BlockingNodeForTesting(id="child2", name="Child Node 2", blocks=False)
+        parent_question = Question(
+            id="parent", name="Parent Question", is_resolved=True
+        )
+        child_node_blocked = BlockingNodeForTesting(
+            id="child1", name="Child Node 1", blocks=True
+        )
+        child_node_unblocked = BlockingNodeForTesting(
+            id="child2", name="Child Node 2", blocks=False
+        )
 
-        graph.add_nodes_from([parent_question, child_node_blocked, child_node_unblocked])
-        graph.add_edge(parent_question, child_node_blocked, type=EdgeType.REQUIRES.value)
-        graph.add_edge(parent_question, child_node_unblocked, type=EdgeType.REQUIRES.value)
+        graph.add_nodes_from(
+            [parent_question, child_node_blocked, child_node_unblocked]
+        )
+        graph.add_edge(
+            parent_question, child_node_blocked, type=EdgeType.REQUIRES.value
+        )
+        graph.add_edge(
+            parent_question, child_node_unblocked, type=EdgeType.REQUIRES.value
+        )
 
         # Even though parent_question is resolved, it should be blocked because child_node_blocked is blocked
         self.assertTrue(parent_question.is_blocked(graph))
@@ -69,9 +83,15 @@ class TestQuestion(unittest.TestCase):
         """Test that a question is not blocked if all its children are unblocked."""
         graph = nx.DiGraph()
 
-        parent_question = Question(id="parent", name="Parent Question", is_resolved=True)
-        child_node1 = BlockingNodeForTesting(id="child1", name="Child Node 1", blocks=False)
-        child_node2 = BlockingNodeForTesting(id="child2", name="Child Node 2", blocks=False)
+        parent_question = Question(
+            id="parent", name="Parent Question", is_resolved=True
+        )
+        child_node1 = BlockingNodeForTesting(
+            id="child1", name="Child Node 1", blocks=False
+        )
+        child_node2 = BlockingNodeForTesting(
+            id="child2", name="Child Node 2", blocks=False
+        )
 
         graph.add_nodes_from([parent_question, child_node1, child_node2])
         graph.add_edge(parent_question, child_node1, type=EdgeType.REQUIRES.value)
@@ -85,14 +105,24 @@ class TestQuestion(unittest.TestCase):
         graph = nx.DiGraph()
 
         root_question = Question(id="root", name="Root Question", is_resolved=True)
-        level1_question = Question(id="level1", name="Level 1 Question", is_resolved=True)
-        level2_question = Question(id="level2", name="Level 2 Question", is_resolved=True)
-        level3_question_blocked = Question(id="level3", name="Level 3 Question", is_resolved=False)
+        level1_question = Question(
+            id="level1", name="Level 1 Question", is_resolved=True
+        )
+        level2_question = Question(
+            id="level2", name="Level 2 Question", is_resolved=True
+        )
+        level3_question_blocked = Question(
+            id="level3", name="Level 3 Question", is_resolved=False
+        )
 
-        graph.add_nodes_from([root_question, level1_question, level2_question, level3_question_blocked])
+        graph.add_nodes_from(
+            [root_question, level1_question, level2_question, level3_question_blocked]
+        )
         graph.add_edge(root_question, level1_question, type=EdgeType.REQUIRES.value)
         graph.add_edge(level1_question, level2_question, type=EdgeType.REQUIRES.value)
-        graph.add_edge(level2_question, level3_question_blocked, type=EdgeType.REQUIRES.value)
+        graph.add_edge(
+            level2_question, level3_question_blocked, type=EdgeType.REQUIRES.value
+        )
 
         # The blocking status should propagate up through all levels
         self.assertTrue(level2_question.is_blocked(graph))
@@ -103,11 +133,17 @@ class TestQuestion(unittest.TestCase):
         """Test that blocking doesn't propagate through REFERENCES edge type."""
         graph = nx.DiGraph()
 
-        parent_question = Question(id="parent", name="Parent Question", is_resolved=True)
-        child_question_blocked = Question(id="child", name="Child Question", is_resolved=False)
+        parent_question = Question(
+            id="parent", name="Parent Question", is_resolved=True
+        )
+        child_question_blocked = Question(
+            id="child", name="Child Question", is_resolved=False
+        )
 
         graph.add_nodes_from([parent_question, child_question_blocked])
-        graph.add_edge(parent_question, child_question_blocked, type=EdgeType.REFERENCES)
+        graph.add_edge(
+            parent_question, child_question_blocked, type=EdgeType.REFERENCES
+        )
 
         # parent_question is resolved and the child is only referenced (not required),
         # so parent_question should not be blocked
@@ -117,9 +153,15 @@ class TestQuestion(unittest.TestCase):
         """Test blocking behavior with mixed edge types."""
         graph = nx.DiGraph()
 
-        parent_question = Question(id="parent", name="Parent Question", is_resolved=True)
-        required_child = Question(id="required", name="Required Child", is_resolved=False)
-        referenced_child = Question(id="referenced", name="Referenced Child", is_resolved=False)
+        parent_question = Question(
+            id="parent", name="Parent Question", is_resolved=True
+        )
+        required_child = Question(
+            id="required", name="Required Child", is_resolved=False
+        )
+        referenced_child = Question(
+            id="referenced", name="Referenced Child", is_resolved=False
+        )
 
         graph.add_nodes_from([parent_question, required_child, referenced_child])
         graph.add_edge(parent_question, required_child, type=EdgeType.REQUIRES.value)
@@ -149,7 +191,9 @@ class TestQuestion(unittest.TestCase):
         """Test that a resolved question is still blocked if its children are blocked."""
         graph = nx.DiGraph()
 
-        parent_question = Question(id="parent", name="Parent Question", is_resolved=True)
+        parent_question = Question(
+            id="parent", name="Parent Question", is_resolved=True
+        )
         child_question = Question(id="child", name="Child Question", is_resolved=False)
 
         graph.add_nodes_from([parent_question, child_question])
@@ -162,9 +206,15 @@ class TestQuestion(unittest.TestCase):
         """Test question with different types of child nodes."""
         graph = nx.DiGraph()
 
-        parent_question = Question(id="parent", name="Parent Question", is_resolved=True)
-        blocking_node = BlockingNodeForTesting(id="blocker", name="Blocker", blocks=True)
-        non_blocking_node = BlockingNodeForTesting(id="non_blocker", name="Non-Blocker", blocks=False)
+        parent_question = Question(
+            id="parent", name="Parent Question", is_resolved=True
+        )
+        blocking_node = BlockingNodeForTesting(
+            id="blocker", name="Blocker", blocks=True
+        )
+        non_blocking_node = BlockingNodeForTesting(
+            id="non_blocker", name="Non-Blocker", blocks=False
+        )
 
         graph.add_nodes_from([parent_question, blocking_node, non_blocking_node])
         graph.add_edge(parent_question, blocking_node, type=EdgeType.REQUIRES.value)
@@ -177,8 +227,12 @@ class TestQuestion(unittest.TestCase):
         """Test that a question in an empty graph is blocked only by its resolution status."""
         empty_graph = nx.DiGraph()  # Graph with no edges
 
-        resolved_question = Question(id="resolved", name="Resolved Question", is_resolved=True)
-        unresolved_question = Question(id="unresolved", name="Unresolved Question", is_resolved=False)
+        resolved_question = Question(
+            id="resolved", name="Resolved Question", is_resolved=True
+        )
+        unresolved_question = Question(
+            id="unresolved", name="Unresolved Question", is_resolved=False
+        )
 
         empty_graph.add_nodes_from([resolved_question, unresolved_question])
 
