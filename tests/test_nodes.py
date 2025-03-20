@@ -78,13 +78,16 @@ class TestNodeFactory(unittest.TestCase):
         node = Node.from_contents(id="t1", name="Node with Ref", marker=None, ref="reference-id")
         self.assertEqual(node.ref, "reference-id")
 
-    def test_raises_for_unknown_marker(self):
+    def test_fallback_for_unknown_marker(self):
         """Test that from_contents raises ValueError for unknown markers."""
-        with self.assertRaises(ValueError) as context:
-            Node.from_contents(id="err1", name="Error Node", marker="Z")
 
-        self.assertTrue("Unknown marker" in str(context.exception))
-        self.assertTrue("Error Node" in str(context.exception))
+        node = Node.from_contents(id="unknown", name="Unknown Node", marker="Z")
+
+        self.assertIsInstance(node, BlockingNode)
+        self.assertEqual(node.id, "unknown")
+        self.assertEqual(node.name, "Unknown Node")
+        self.assertEqual(node.marker, "Z")
+        self.assertEqual(node.ref, None)
 
 
 class TestBlockingNode(unittest.TestCase):

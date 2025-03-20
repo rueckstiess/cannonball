@@ -69,7 +69,8 @@ class Node:
         if marker == "P":
             return Problem(id, name, marker, ref)
 
-        raise ValueError(f"Unknown marker '{marker}' for node '{name}'")
+        # Fallback to a generic BlockingNode if no specific type is matched
+        return BlockingNode(id, name, marker, ref)
 
     def __hash__(self) -> str:
         """Return a hash of the node ID."""

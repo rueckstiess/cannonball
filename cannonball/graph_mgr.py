@@ -7,7 +7,7 @@ from .utils import (
 )
 import networkx as nx
 from marko import Markdown
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Type
 import uuid
 
 
@@ -151,10 +151,9 @@ class GraphMgr:
             text = get_raw_text_from_listtem(list_item)
             marker, ref, ref_links = extract_node_marker_and_refs(text)
 
-            # Always use a UUID for node ID to ensure uniqueness
-
             # Create and add the node
-            node = Node(id=str(uuid.uuid4())[:8], name=text, marker=marker, ref=ref)
+            node_id = str(uuid.uuid4())[:8]
+            node = Node.from_contents(id=node_id, name=text, marker=marker, ref=ref)
             instance.add_node(node)
 
             # Map the ListItem to its node ID for the second pass
