@@ -106,10 +106,12 @@ class Task(BlockingNode):
 
     @property
     def status(self):
+        """Returns the status."""
         return self._status
 
     @status.setter
     def status(self, status):
+        """Sets the status and appropriate marker."""
         self._status = status
         self.marker = self.status_markers[status]
 
@@ -154,7 +156,10 @@ class Question(BlockingNode):
 
     def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A question blocks if it's not resolved."""
-        return not self.is_resolved
+        blocked = super().is_blocked(graph)
+
+        # A question is blocked if any of its children are blocked or if it is not resolved
+        return blocked or not self.is_resolved
 
 
 class Problem(BlockingNode):
@@ -189,4 +194,6 @@ class Goal(BlockingNode):
 
     def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A goal blocks if it's not achieved."""
-        return not self.is_achieved
+        blocked = super().is_blocked(graph)
+        # A goal is blocked if any of its children are blocked or if it is not achieved
+        return blocked or not self.is_achieved
