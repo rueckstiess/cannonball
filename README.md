@@ -58,6 +58,8 @@ cannonball/
 ├── cannonball/
 │   ├── __init__.py             # Module initialization
 │   ├── utils.py                # Common utility functions
+|   ├── graph_mgr.py            # Container to manage nxgraphs with utilities
+|   └── nodes.py                # Node definitions and logic
 ├── tests/
 │   ├── __init__.py
 │   └── test_*.py               # Test files, starting with `test_`
