@@ -60,7 +60,8 @@ class BlockingNode(Node):
 
 
 class Thought(BlockingNode):
-    """A thought node is a node without a marker (single `-` bullet point). It is never blocked"""
+    """A thought node is a node without a marker (single `-` bullet point).
+    It just propagates the blocking state of its children."""
 
     pass
 
