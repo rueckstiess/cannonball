@@ -179,9 +179,7 @@ class TestGetRawTextFromListItem:
         # Test with formatted text (bold)
         list_md_bold = "- Sample **bold** text"
         ast_bold = md.parse(list_md_bold)
-        list_item_bold = ast_bold.children[0].children[
-            0
-        ]  # Get the ListItem inside the List
+        list_item_bold = ast_bold.children[0].children[0]  # Get the ListItem inside the List
 
         result_bold = get_raw_text_from_listtem(list_item_bold)
         assert result_bold == "Sample **bold** text"
@@ -343,9 +341,7 @@ class TestPrintAst:
         # Mock get_raw_text_from_listtem function to return predictable text
         with patch("cannonball.utils.get_raw_text_from_listtem") as mock_get_text:
             mock_get_text.side_effect = (
-                lambda item: "Item 1"
-                if item == list_item1
-                else ("Nested Item" if item == nested_item else "Item 2")
+                lambda item: "Item 1" if item == list_item1 else ("Nested Item" if item == nested_item else "Item 2")
             )
 
             # Print the AST
@@ -416,33 +412,29 @@ class TestGetSubgraph(unittest.TestCase):
 
     def test_get_subgraph_by_edge_type(self):
         # Test filtering by REQUIRES edges
-        subgraph = get_subgraph(self.graph, edge_type=EdgeType.REQUIRES)
+        subgraph = get_subgraph(self.graph, edge_filter=EdgeType.REQUIRES)
         self.assertEqual(len(subgraph.nodes), 4)  # n1, n2, n3, n4
         self.assertEqual(len(subgraph.edges), 3)  # n1->n2, n2->n3, n3->n4
 
         # Test filtering by REFERENCES edges
-        subgraph = get_subgraph(self.graph, edge_type=EdgeType.REFERENCES)
+        subgraph = get_subgraph(self.graph, edge_filter=EdgeType.REFERENCES)
         self.assertEqual(len(subgraph.nodes), 5)  # n1, n2, n3, n5, n6
         self.assertEqual(len(subgraph.edges), 3)  # n1->n3, n2->n5, n3->n6
 
     def test_get_subgraph_combined_filters(self):
         # Test with both root node and edge type filters
-        subgraph = get_subgraph(self.graph, root_node="n2", edge_type=EdgeType.REQUIRES)
+        subgraph = get_subgraph(self.graph, root_node="n2", edge_filter=EdgeType.REQUIRES)
         # When we filter by REQUIRES from n2, we should only get n2->n3->n4
         self.assertEqual(len(subgraph.nodes), 3)  # n2, n3, n4
         self.assertEqual(len(subgraph.edges), 2)  # n2->n3, n3->n4
 
         # Another combined test - n1 with REFERENCES edges only includes n1->n3
-        subgraph = get_subgraph(
-            self.graph, root_node="n1", edge_type=EdgeType.REFERENCES
-        )
+        subgraph = get_subgraph(self.graph, root_node="n1", edge_filter=EdgeType.REFERENCES)
         self.assertEqual(len(subgraph.nodes), 3)  # n1, n3, n6
         self.assertEqual(len(subgraph.edges), 2)  # n1->n3->n6
 
         # Test with n3 as root and REFERENCES edges
-        subgraph = get_subgraph(
-            self.graph, root_node="n3", edge_type=EdgeType.REFERENCES
-        )
+        subgraph = get_subgraph(self.graph, root_node="n3", edge_filter=EdgeType.REFERENCES)
         self.assertEqual(len(subgraph.nodes), 2)  # n3, n6
         self.assertEqual(len(subgraph.edges), 1)  # n3->n6
 
@@ -480,3 +472,124 @@ class TestGetSubgraph(unittest.TestCase):
         self.assertTrue("d2" in subgraph.nodes)
         self.assertTrue("e1" not in subgraph.nodes)
         self.assertTrue("e2" not in subgraph.nodes)
+
+    def test_edge_type_as_function(self):
+        # Test edge_type as a filtering function
+        # Only include edges where the type contains the letter 'e'
+        edge_filter = lambda data: "ref" in data.get("type", "")
+        subgraph = get_subgraph(self.graph, edge_filter=edge_filter)
+
+        # This should include only "references" edges
+        self.assertEqual(len(subgraph.edges), 3)
+        for u, v, attr in subgraph.edges(data=True):
+            self.assertEqual(attr["type"], "references")
+
+        # Test another custom filter - edges where type starts with 'r'
+        starts_with_r = lambda data: data.get("type", "").startswith("r")
+        subgraph = get_subgraph(self.graph, edge_filter=starts_with_r)
+
+        self.assertEqual(len(subgraph.edges), 6)  # All edges in our test graph start with 'r'
+
+        # Test filter that matches nothing
+        no_match = lambda data: data.get("type", "") == "nonexistent"
+        subgraph = get_subgraph(self.graph, edge_filter=no_match)
+
+        self.assertEqual(len(subgraph.edges), 0)
+
+    def test_node_type_as_type(self):
+        # Create a new graph with node types
+        typed_graph = nx.DiGraph()
+
+        # Add nodes with different types
+        typed_graph.add_node("n1")
+        typed_graph.add_node("n2")
+        typed_graph.add_node(3)
+        typed_graph.add_node(4)
+
+        # Add edges between them
+        typed_graph.add_edge("n1", "n2")
+        typed_graph.add_edge("n1", 3)
+        typed_graph.add_edge("n2", 4)
+        typed_graph.add_edge(3, 4)
+
+        # Test filtering by node type
+        subgraph = get_subgraph(typed_graph, node_filter=str)
+
+        self.assertEqual(len(subgraph), 2)
+        for node in subgraph.nodes:
+            self.assertIsInstance(node, str)
+
+        # Test with the other type
+        subgraph = get_subgraph(typed_graph, node_filter=int)
+
+        self.assertEqual(len(subgraph.nodes), 2)
+        for node in subgraph.nodes:
+            self.assertIsInstance(node, int)
+
+    def test_node_type_as_function(self):
+        # Create a graph with various node attributes
+        attr_graph = nx.DiGraph()
+
+        # Add nodes with different attributes
+        attr_graph.add_node(False)
+        attr_graph.add_node(True)
+        attr_graph.add_node(12.4)
+        attr_graph.add_node("foo")
+
+        # Add edges between them
+        attr_graph.add_edge(False, True)
+        attr_graph.add_edge(False, 12.4)
+        attr_graph.add_edge(True, "foo")
+        attr_graph.add_edge(12.4, "foo")
+
+        # Test filtering by a function that checks node attributes
+        filter_bool = lambda node: isinstance(node, bool)
+        subgraph = get_subgraph(attr_graph, node_filter=filter_bool)
+
+        self.assertEqual(len(subgraph.nodes), 2)
+        for node in subgraph.nodes:
+            self.assertIsInstance(node, bool)
+
+    def test_combined_node_and_edge_filters(self):
+        # Create a graph with both node and edge attributes
+        combined_graph = nx.DiGraph()
+
+        # Add nodes with attributes
+        combined_graph.add_node("n1")
+        combined_graph.add_node("n2")
+        combined_graph.add_node(3)
+        combined_graph.add_node(4.4)
+
+        # Add edges with attributes
+        combined_graph.add_edge("n1", "n2", relation="strong")
+        combined_graph.add_edge("n1", 3, relation="weak")
+        combined_graph.add_edge("n2", 4.4, relation="medium")
+        combined_graph.add_edge(3, 4.4, relation="strong")
+
+        # Define filters
+        string_nodes = lambda node: isinstance(node, str)
+        strong_relation = lambda edge: edge.get("relation") == "strong"
+
+        # Test combining node and edge filters
+        subgraph = get_subgraph(combined_graph, node_filter=string_nodes, edge_filter=strong_relation)
+
+        # This should only include n1 and n2 nodes with the strong relation between them
+        self.assertEqual(len(subgraph.nodes), 2)
+        self.assertEqual(len(subgraph.edges), 1)
+        self.assertTrue(("n1", "n2") in subgraph.edges())
+
+        # Test with root_node as well
+        subgraph = get_subgraph(
+            combined_graph,
+            root_node="n1",
+            node_filter=lambda node: isinstance(node, (str, float)),
+            edge_filter=lambda edge: edge.get("relation") != "weak",
+        )
+
+        # Should include n1 -> n2 -> n4 path (but not n3 which is reachable via weak relation)
+        self.assertEqual(len(subgraph.nodes), 3)
+        self.assertTrue("n1" in subgraph.nodes)
+        self.assertTrue("n2" in subgraph.nodes)
+        self.assertTrue(4.4 in subgraph.nodes)
+        self.assertFalse(3 in subgraph.nodes)
+        self.assertEqual(len(subgraph.edges), 2)  # n1->n2 and n2->n4

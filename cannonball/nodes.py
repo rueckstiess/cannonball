@@ -30,9 +30,7 @@ class Node:
         self._node_attributes = ("id", "name", "marker", "ref")
 
     @staticmethod
-    def from_contents(
-        id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None
-    ) -> "Node":
+    def from_contents(id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None) -> "Node":
         """Creates a node with the correct derived class based on the content.
 
         Args:
@@ -78,7 +76,9 @@ class Node:
 
     def to_dict(self) -> dict:
         """Convert the relevant node attributes to a dictionary representation."""
-        return {attr: getattr(self, attr) for attr in self._node_attributes}
+        node_attrs = {attr: getattr(self, attr) for attr in self._node_attributes}
+        node_attrs["type"] = self.__class__.__name__
+        return node_attrs
 
     def __hash__(self) -> str:
         """Return a hash of the node ID."""
@@ -104,12 +104,9 @@ class BlockingNode(Node):
         Returns:
             bool: True if this node is blocked
         """
-        subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
+        subgraph = get_subgraph(graph, root_node=self, edge_filter=EdgeType.REQUIRES)
         return (
-            any(
-                getattr(node, "is_blocked", lambda _: False)(subgraph)
-                for node in subgraph.successors(self)
-            )
+            any(getattr(node, "is_blocked", lambda _: False)(subgraph) for node in subgraph.successors(self))
             if subgraph
             else False
         )

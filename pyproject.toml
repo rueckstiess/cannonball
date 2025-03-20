@@ -1,0 +1,3 @@
+[tool.ruff]
+# Ignore specific rules project-wide
+ignore = ["E731"]  # Ignore lambda assignment warnings
