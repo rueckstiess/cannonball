@@ -27,9 +27,7 @@ class TestTask(unittest.TestCase):
 
     def test_task_custom_initialization(self):
         """Test that a Task can be initialized with custom values."""
-        task = Task(
-            id="task2", name="Task 2", ref="REF123", status=TaskType.IN_PROGRESS
-        )
+        task = Task(id="task2", name="Task 2", ref="REF123", status=TaskType.IN_PROGRESS)
         self.assertEqual(task.id, "task2")
         self.assertEqual(task.name, "Task 2")
         self.assertEqual(task._status, TaskType.IN_PROGRESS)
@@ -39,15 +37,9 @@ class TestTask(unittest.TestCase):
     def test_marker_inference_from_status(self):
         """Test that all task statuses correctly infer their respective markers."""
         open_task = Task(id="open", name="Open Task", status=TaskType.OPEN)
-        in_progress_task = Task(
-            id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS
-        )
-        completed_task = Task(
-            id="done", name="Completed Task", status=TaskType.COMPLETED
-        )
-        cancelled_task = Task(
-            id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED
-        )
+        in_progress_task = Task(id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS)
+        completed_task = Task(id="done", name="Completed Task", status=TaskType.COMPLETED)
+        cancelled_task = Task(id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED)
 
         self.assertEqual(open_task.marker, " ")
         self.assertEqual(in_progress_task.marker, "/")
@@ -70,15 +62,9 @@ class TestTask(unittest.TestCase):
     def test_is_finished_for_different_statuses(self):
         """Test is_finished() returns correct result for different task statuses."""
         open_task = Task(id="open", name="Open Task", status=TaskType.OPEN)
-        in_progress_task = Task(
-            id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS
-        )
-        completed_task = Task(
-            id="done", name="Completed Task", status=TaskType.COMPLETED
-        )
-        cancelled_task = Task(
-            id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED
-        )
+        in_progress_task = Task(id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS)
+        completed_task = Task(id="done", name="Completed Task", status=TaskType.COMPLETED)
+        cancelled_task = Task(id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED)
 
         self.assertFalse(open_task.is_finished())
         self.assertFalse(in_progress_task.is_finished())
@@ -90,19 +76,11 @@ class TestTask(unittest.TestCase):
         graph = nx.DiGraph()
 
         open_task = Task(id="open", name="Open Task", status=TaskType.OPEN)
-        in_progress_task = Task(
-            id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS
-        )
-        completed_task = Task(
-            id="done", name="Completed Task", status=TaskType.COMPLETED
-        )
-        cancelled_task = Task(
-            id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED
-        )
+        in_progress_task = Task(id="progress", name="In Progress Task", status=TaskType.IN_PROGRESS)
+        completed_task = Task(id="done", name="Completed Task", status=TaskType.COMPLETED)
+        cancelled_task = Task(id="cancelled", name="Cancelled Task", status=TaskType.CANCELLED)
 
-        graph.add_nodes_from(
-            [open_task, in_progress_task, completed_task, cancelled_task]
-        )
+        graph.add_nodes_from([open_task, in_progress_task, completed_task, cancelled_task])
 
         self.assertTrue(open_task.is_blocked(graph))
         self.assertTrue(in_progress_task.is_blocked(graph))
@@ -114,12 +92,8 @@ class TestTask(unittest.TestCase):
         graph = nx.DiGraph()
 
         parent_task = Task(id="parent", name="Parent Task", status=TaskType.COMPLETED)
-        child_task_blocked = Task(
-            id="child1", name="Child Task 1", status=TaskType.OPEN
-        )
-        child_task_unblocked = Task(
-            id="child2", name="Child Task 2", status=TaskType.COMPLETED
-        )
+        child_task_blocked = Task(id="child1", name="Child Task 1", status=TaskType.OPEN)
+        child_task_unblocked = Task(id="child2", name="Child Task 2", status=TaskType.COMPLETED)
 
         graph.add_nodes_from([parent_task, child_task_blocked, child_task_unblocked])
         graph.add_edge(parent_task, child_task_blocked, type=EdgeType.REQUIRES.value)
@@ -150,9 +124,7 @@ class TestTask(unittest.TestCase):
         root_task = Task(id="root", name="Root Task", status=TaskType.COMPLETED)
         level1_task = Task(id="level1", name="Level 1 Task", status=TaskType.COMPLETED)
         level2_task = Task(id="level2", name="Level 2 Task", status=TaskType.COMPLETED)
-        level3_task_blocked = Task(
-            id="level3", name="Level 3 Task", status=TaskType.OPEN
-        )
+        level3_task_blocked = Task(id="level3", name="Level 3 Task", status=TaskType.OPEN)
 
         graph.add_nodes_from([root_task, level1_task, level2_task, level3_task_blocked])
         graph.add_edge(root_task, level1_task, type=EdgeType.REQUIRES.value)
@@ -183,12 +155,8 @@ class TestTask(unittest.TestCase):
         graph = nx.DiGraph()
 
         parent_task = Task(id="parent", name="Parent Task", status=TaskType.COMPLETED)
-        required_child = Task(
-            id="required", name="Required Child", status=TaskType.OPEN
-        )
-        referenced_child = Task(
-            id="referenced", name="Referenced Child", status=TaskType.OPEN
-        )
+        required_child = Task(id="required", name="Required Child", status=TaskType.OPEN)
+        referenced_child = Task(id="referenced", name="Referenced Child", status=TaskType.OPEN)
 
         graph.add_nodes_from([parent_task, required_child, referenced_child])
         graph.add_edge(parent_task, required_child, type=EdgeType.REQUIRES.value)
@@ -202,12 +170,8 @@ class TestTask(unittest.TestCase):
         graph = nx.DiGraph()
 
         task = Task(id="task", name="Task", status=TaskType.COMPLETED)
-        blocking_node = BlockingNodeForTesting(
-            id="blocker", name="Blocker", blocks=True
-        )
-        non_blocking_node = BlockingNodeForTesting(
-            id="non_blocker", name="Non-Blocker", blocks=False
-        )
+        blocking_node = BlockingNodeForTesting(id="blocker", name="Blocker", blocks=True)
+        non_blocking_node = BlockingNodeForTesting(id="non_blocker", name="Non-Blocker", blocks=False)
 
         graph.add_nodes_from([task, blocking_node, non_blocking_node])
         graph.add_edge(task, blocking_node, type=EdgeType.REQUIRES.value)

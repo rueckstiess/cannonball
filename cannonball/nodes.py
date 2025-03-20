@@ -136,22 +136,34 @@ class AlternativeContainer(BlockingNode):
             else False
         )
 
+        # Base case, no alternatives
         if blocked:
             return True
 
         alternative_root = self
 
-        # Get all alternatives in our subtree but without other AlternativeContainers
+        # Get all alternatives in our subtree but without children from AlternativeContainers
+        # root should be included because we specify root_node
         subgraph = get_subgraph(
             graph, root_node=alternative_root, node_filter=lambda n: not isinstance(n, AlternativeContainer)
         )
         if len(subgraph) == 0:
             return False
 
-        viable_alternatives = list(nx.dfs_preorder_nodes(subgraph, source=alternative_root))
+        # Get all nested unblocked alternatives recursively
+        alternatives = list(
+            a for a in nx.dfs_preorder_nodes(subgraph, source=alternative_root) if isinstance(a, Alternative)
+        )
 
-        # We're unblocked if exactly one alternative is viable
-        return len(viable_alternatives) > 1
+        # If there are no alternatives, we're not blocked
+        if len(alternatives) == 0:
+            return False
+
+        # check blocked alternatives
+        unblocked_alternatives = [a for a in alternatives if not a.is_blocked(graph)]
+
+        # We are blocked if there is not exactly one unblocked alternative
+        return len(unblocked_alternatives) != 1
 
 
 class TaskType(Enum):

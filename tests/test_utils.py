@@ -12,9 +12,12 @@ from cannonball.utils import (
     get_subgraph,
     extract_str_content,
 )
+from cannonball.nodes import AlternativeContainer
 
 import networkx as nx
 import unittest
+
+from utils import with_markdown
 
 
 class TestExtractNodeMarkerAndRef:
@@ -608,3 +611,24 @@ class TestExtractStrContent(unittest.TestCase):
         ]
         for input_str, expected_output in test_cases:
             assert extract_str_content(input_str) == expected_output, f"Failed for input: {input_str}"
+
+
+@with_markdown("""\
+- [?] Question
+    - [a] Alternative
+""")
+class TestSubGraphFromMarkdown:
+    def test_get_alternatives_subgraph(self, graph_fixture):
+        graph = graph_fixture["graph"]
+        nodes = graph_fixture["nodes_by_name"]
+        assert len(graph) == 2
+        assert len(graph.edges) == 1
+
+        subgraph = get_subgraph(
+            graph, root_node=nodes["Question"], node_filter=lambda n: not isinstance(n, AlternativeContainer)
+        )
+        if len(subgraph) == 0:
+            return False
+
+        alternatives = list(nx.dfs_preorder_nodes(subgraph, source=nodes["Question"]))
+        assert len(alternatives) > 0

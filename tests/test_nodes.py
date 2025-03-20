@@ -36,25 +36,19 @@ class TestNodeFactory(unittest.TestCase):
         self.assertEqual(open_task.marker, " ")
 
         # In-progress task
-        in_progress_task = Node.from_contents(
-            id="prog1", name="In Progress Task", marker="/"
-        )
+        in_progress_task = Node.from_contents(id="prog1", name="In Progress Task", marker="/")
         self.assertIsInstance(in_progress_task, Task)
         self.assertEqual(in_progress_task.status, TaskType.IN_PROGRESS)
         self.assertEqual(in_progress_task.marker, "/")
 
         # Completed task
-        completed_task = Node.from_contents(
-            id="comp1", name="Completed Task", marker="x"
-        )
+        completed_task = Node.from_contents(id="comp1", name="Completed Task", marker="x")
         self.assertIsInstance(completed_task, Task)
         self.assertEqual(completed_task.status, TaskType.COMPLETED)
         self.assertEqual(completed_task.marker, "x")
 
         # Cancelled task
-        cancelled_task = Node.from_contents(
-            id="canc1", name="Cancelled Task", marker="-"
-        )
+        cancelled_task = Node.from_contents(id="canc1", name="Cancelled Task", marker="-")
         self.assertIsInstance(cancelled_task, Task)
         self.assertEqual(cancelled_task.status, TaskType.CANCELLED)
         self.assertEqual(cancelled_task.marker, "-")
@@ -90,9 +84,7 @@ class TestNodeFactory(unittest.TestCase):
 
     def test_with_reference(self):
         """Test that from_contents correctly sets the reference."""
-        node = Node.from_contents(
-            id="t1", name="Node with Ref", marker=None, ref="reference-id"
-        )
+        node = Node.from_contents(id="t1", name="Node with Ref", marker=None, ref="reference-id")
         self.assertEqual(node.ref, "reference-id")
 
     def test_fallback_for_unknown_marker(self):
@@ -121,17 +113,11 @@ class TestBlockingNode(unittest.TestCase):
 
         # Create a child node that is blocking
         blocking_child = BlockingNode(id="blocking_child", name="Blocking Child")
-        blocking_child.is_blocked = (
-            lambda g: True
-        )  # Override is_blocked to always return True
+        blocking_child.is_blocked = lambda g: True  # Override is_blocked to always return True
 
         # Create a child node that is not blocking
-        non_blocking_child = BlockingNode(
-            id="non_blocking_child", name="Non-Blocking Child"
-        )
-        non_blocking_child.is_blocked = (
-            lambda g: False
-        )  # Override is_blocked to always return False
+        non_blocking_child = BlockingNode(id="non_blocking_child", name="Non-Blocking Child")
+        non_blocking_child.is_blocked = lambda g: False  # Override is_blocked to always return False
 
         # Add nodes to the graph
         for node in [parent, blocking_child, non_blocking_child]:
@@ -199,9 +185,7 @@ class TestBlockingNode(unittest.TestCase):
 
         # Nodes connected with REFERENCES edges
         ref_child1 = BlockingNode(id="ref_child1", name="Reference Child 1")
-        ref_child1.is_blocked = (
-            lambda g: True
-        )  # This is blocking but shouldn't affect parent
+        ref_child1.is_blocked = lambda g: True  # This is blocking but shouldn't affect parent
 
         ref_child2 = BlockingNode(id="ref_child2", name="Reference Child 2")
 
@@ -330,9 +314,7 @@ class TestBlockingNode(unittest.TestCase):
         self.graph.add_node(node, **node.__dict__)
 
         # A node with no children should not be blocked
-        self.assertFalse(
-            node.is_blocked(self.graph), "Node with no children should not be blocked"
-        )
+        self.assertFalse(node.is_blocked(self.graph), "Node with no children should not be blocked")
 
     def test_is_blocked_with_empty_graph(self):
         """Test is_blocked with an empty graph."""
@@ -340,9 +322,7 @@ class TestBlockingNode(unittest.TestCase):
         node = BlockingNode(id="test", name="Test Node")
 
         # A node in an empty graph should not be blocked
-        self.assertFalse(
-            node.is_blocked(empty_graph), "Node in empty graph should not be blocked"
-        )
+        self.assertFalse(node.is_blocked(empty_graph), "Node in empty graph should not be blocked")
 
     def test_cyclic_graph(self):
         """Test is_blocked with a cyclic graph."""
@@ -373,19 +353,11 @@ class TestBlockingNode(unittest.TestCase):
         graph = nx.DiGraph()
 
         # Test QuestionNode
-        question_resolved = Question(
-            id="q1", name="Resolved Question", is_resolved=True
-        )
-        question_unresolved = Question(
-            id="q2", name="Unresolved Question", is_resolved=False
-        )
+        question_resolved = Question(id="q1", name="Resolved Question", is_resolved=True)
+        question_unresolved = Question(id="q2", name="Unresolved Question", is_resolved=False)
 
-        self.assertFalse(
-            question_resolved.is_blocked(graph), "Resolved question should not block"
-        )
-        self.assertTrue(
-            question_unresolved.is_blocked(graph), "Unresolved question should block"
-        )
+        self.assertFalse(question_resolved.is_blocked(graph), "Resolved question should not block")
+        self.assertTrue(question_unresolved.is_blocked(graph), "Unresolved question should block")
 
         # Test ProblemNode
         problem = Problem(id="p1", name="Problem")
@@ -395,12 +367,8 @@ class TestBlockingNode(unittest.TestCase):
         goal_achieved = Goal(id="g1", name="Achieved Goal", is_achieved=True)
         goal_unachieved = Goal(id="g2", name="Unachieved Goal", is_achieved=False)
 
-        self.assertFalse(
-            goal_achieved.is_blocked(graph), "Achieved goal should not block"
-        )
-        self.assertTrue(
-            goal_unachieved.is_blocked(graph), "Unachieved goal should block"
-        )
+        self.assertFalse(goal_achieved.is_blocked(graph), "Achieved goal should not block")
+        self.assertTrue(goal_unachieved.is_blocked(graph), "Unachieved goal should block")
 
     def test_propagation_multiple_levels(self):
         """Test blocking propagation through multiple levels of nodes."""

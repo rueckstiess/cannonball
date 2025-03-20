@@ -19,6 +19,7 @@ def get_subgraph(
     root_node: Optional[str] = None,
     node_filter: Optional[Type | Callable] = None,
     edge_filter: Optional[EdgeType | Callable] = None,
+    include_root: bool = True,
 ) -> nx.DiGraph:
     """Get a subgraph based on root node and/or edge type.
 
@@ -58,8 +59,13 @@ def get_subgraph(
         else:
             # Use the provided function directly
             node_type_fn = node_filter
+
         # Create a subgraph with only the nodes of the specified type
         nodes = [n for n in graph if node_type_fn(n)]
+
+        # If root_node is specified and was in the graph ensure it is included in the nodes list
+        if root_node is not None:
+            nodes.insert(0, root_node)
         graph = graph.subgraph(nodes)
 
     if root_node is not None:
