@@ -27,6 +27,8 @@ class Node:
         self.marker = marker
         self.ref = ref
 
+        self._node_attributes = ("id", "name", "marker", "ref")
+
     @staticmethod
     def from_contents(id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None) -> "Node":
         """Creates a node with the correct derived class based on the content.
@@ -71,6 +73,10 @@ class Node:
 
         # Fallback to a generic BlockingNode if no specific type is matched
         return BlockingNode(id, name, marker, ref)
+
+    def to_dict(self) -> dict:
+        """Convert the relevant node attributes to a dictionary representation."""
+        return {attr: getattr(self, attr) for attr in self._node_attributes}
 
     def __hash__(self) -> str:
         """Return a hash of the node ID."""
@@ -149,6 +155,7 @@ class Task(BlockingNode):
         marker = self.status_markers[status]
         super().__init__(id, name, marker, ref)
         self._status = status
+        self._node_attributes = ("id", "name", "marker", "ref", "_status")
 
     @property
     def status(self):
@@ -199,6 +206,7 @@ class Question(BlockingNode):
         """
         super().__init__(id, name, marker, ref)
         self.is_resolved = is_resolved
+        self._node_attributes = ("id", "name", "marker", "ref", "is_resolved")
 
     def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A question blocks if it's not resolved."""
@@ -237,6 +245,7 @@ class Goal(BlockingNode):
         """
         super().__init__(id, name, marker, ref)
         self.is_achieved = is_achieved
+        self._node_attributes = ("id", "name", "marker", "ref", "is_achieved")
 
     def is_blocked(self, graph: nx.DiGraph) -> bool:
         """A goal blocks if it's not achieved."""

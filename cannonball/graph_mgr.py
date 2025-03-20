@@ -7,7 +7,7 @@ from .utils import (
 )
 import networkx as nx
 from marko import Markdown
-from typing import Dict, Optional, List, Type
+from typing import Dict, Optional, List
 import uuid
 
 
@@ -42,7 +42,7 @@ class GraphMgr:
         Args:
             node: The node to add.
         """
-        self.nxgraph.add_node(node, **node.__dict__)
+        self.nxgraph.add_node(node, **node.to_dict())
 
         # If the node has a reference, add it to the ref mapping
         if node.ref:
