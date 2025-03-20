@@ -1,9 +1,90 @@
 import unittest
 import networkx as nx
-from cannonball.nodes import BlockingNode, Question, Problem, Goal
+from cannonball.nodes import BlockingNode, Question, Problem, Goal, Node, TaskType, Task, Thought
 from cannonball.utils import EdgeType
 
 # Import the classes to test using relative import
+
+
+class TestNodeFactory(unittest.TestCase):
+    """Tests for the Node.from_contents factory method."""
+
+    def test_creates_thought_node(self):
+        """Test that from_contents creates a Thought node when marker is None."""
+        node = Node.from_contents(id="t1", name="Test Thought", marker=None)
+        self.assertIsInstance(node, Thought)
+        self.assertEqual(node.id, "t1")
+        self.assertEqual(node.name, "Test Thought")
+        self.assertEqual(node.marker, None)
+        self.assertEqual(node.ref, None)
+
+    def test_creates_task_nodes(self):
+        """Test that from_contents creates Task nodes with the correct status for each marker."""
+        # Open task
+        open_task = Node.from_contents(id="open1", name="Open Task", marker=" ")
+        self.assertIsInstance(open_task, Task)
+        self.assertEqual(open_task.status, TaskType.OPEN)
+        self.assertEqual(open_task.marker, " ")
+
+        # In-progress task
+        in_progress_task = Node.from_contents(id="prog1", name="In Progress Task", marker="/")
+        self.assertIsInstance(in_progress_task, Task)
+        self.assertEqual(in_progress_task.status, TaskType.IN_PROGRESS)
+        self.assertEqual(in_progress_task.marker, "/")
+
+        # Completed task
+        completed_task = Node.from_contents(id="comp1", name="Completed Task", marker="x")
+        self.assertIsInstance(completed_task, Task)
+        self.assertEqual(completed_task.status, TaskType.COMPLETED)
+        self.assertEqual(completed_task.marker, "x")
+
+        # Cancelled task
+        cancelled_task = Node.from_contents(id="canc1", name="Cancelled Task", marker="-")
+        self.assertIsInstance(cancelled_task, Task)
+        self.assertEqual(cancelled_task.status, TaskType.CANCELLED)
+        self.assertEqual(cancelled_task.marker, "-")
+
+    def test_creates_question_node(self):
+        """Test that from_contents creates a Question node with the correct marker."""
+        node = Node.from_contents(id="q1", name="Test Question", marker="?")
+        self.assertIsInstance(node, Question)
+        self.assertEqual(node.id, "q1")
+        self.assertEqual(node.name, "Test Question")
+        self.assertEqual(node.marker, "?")
+        self.assertEqual(node.ref, None)
+        self.assertFalse(node.is_resolved)
+
+    def test_creates_goal_node(self):
+        """Test that from_contents creates a Goal node with the correct marker."""
+        node = Node.from_contents(id="g1", name="Test Goal", marker="g")
+        self.assertIsInstance(node, Goal)
+        self.assertEqual(node.id, "g1")
+        self.assertEqual(node.name, "Test Goal")
+        self.assertEqual(node.marker, "g")
+        self.assertEqual(node.ref, None)
+        self.assertFalse(node.is_achieved)
+
+    def test_creates_problem_node(self):
+        """Test that from_contents creates a Problem node with the correct marker."""
+        node = Node.from_contents(id="p1", name="Test Problem", marker="P")
+        self.assertIsInstance(node, Problem)
+        self.assertEqual(node.id, "p1")
+        self.assertEqual(node.name, "Test Problem")
+        self.assertEqual(node.marker, "P")
+        self.assertEqual(node.ref, None)
+
+    def test_with_reference(self):
+        """Test that from_contents correctly sets the reference."""
+        node = Node.from_contents(id="t1", name="Node with Ref", marker=None, ref="reference-id")
+        self.assertEqual(node.ref, "reference-id")
+
+    def test_raises_for_unknown_marker(self):
+        """Test that from_contents raises ValueError for unknown markers."""
+        with self.assertRaises(ValueError) as context:
+            Node.from_contents(id="err1", name="Error Node", marker="Z")
+
+        self.assertTrue("Unknown marker" in str(context.exception))
+        self.assertTrue("Error Node" in str(context.exception))
 
 
 class TestBlockingNode(unittest.TestCase):
@@ -20,17 +101,11 @@ class TestBlockingNode(unittest.TestCase):
 
         # Create a child node that is blocking
         blocking_child = BlockingNode(id="blocking_child", name="Blocking Child")
-        blocking_child.is_blocked = (
-            lambda g: True
-        )  # Override is_blocked to always return True
+        blocking_child.is_blocked = lambda g: True  # Override is_blocked to always return True
 
         # Create a child node that is not blocking
-        non_blocking_child = BlockingNode(
-            id="non_blocking_child", name="Non-Blocking Child"
-        )
-        non_blocking_child.is_blocked = (
-            lambda g: False
-        )  # Override is_blocked to always return False
+        non_blocking_child = BlockingNode(id="non_blocking_child", name="Non-Blocking Child")
+        non_blocking_child.is_blocked = lambda g: False  # Override is_blocked to always return False
 
         # Add nodes to the graph
         for node in [parent, blocking_child, non_blocking_child]:
@@ -98,9 +173,7 @@ class TestBlockingNode(unittest.TestCase):
 
         # Nodes connected with REFERENCES edges
         ref_child1 = BlockingNode(id="ref_child1", name="Reference Child 1")
-        ref_child1.is_blocked = (
-            lambda g: True
-        )  # This is blocking but shouldn't affect parent
+        ref_child1.is_blocked = lambda g: True  # This is blocking but shouldn't affect parent
 
         ref_child2 = BlockingNode(id="ref_child2", name="Reference Child 2")
 
@@ -229,9 +302,7 @@ class TestBlockingNode(unittest.TestCase):
         self.graph.add_node(node, **node.__dict__)
 
         # A node with no children should not be blocked
-        self.assertFalse(
-            node.is_blocked(self.graph), "Node with no children should not be blocked"
-        )
+        self.assertFalse(node.is_blocked(self.graph), "Node with no children should not be blocked")
 
     def test_is_blocked_with_empty_graph(self):
         """Test is_blocked with an empty graph."""
@@ -239,9 +310,7 @@ class TestBlockingNode(unittest.TestCase):
         node = BlockingNode(id="test", name="Test Node")
 
         # A node in an empty graph should not be blocked
-        self.assertFalse(
-            node.is_blocked(empty_graph), "Node in empty graph should not be blocked"
-        )
+        self.assertFalse(node.is_blocked(empty_graph), "Node in empty graph should not be blocked")
 
     def test_cyclic_graph(self):
         """Test is_blocked with a cyclic graph."""
@@ -272,19 +341,11 @@ class TestBlockingNode(unittest.TestCase):
         graph = nx.DiGraph()
 
         # Test QuestionNode
-        question_resolved = Question(
-            id="q1", name="Resolved Question", is_resolved=True
-        )
-        question_unresolved = Question(
-            id="q2", name="Unresolved Question", is_resolved=False
-        )
+        question_resolved = Question(id="q1", name="Resolved Question", is_resolved=True)
+        question_unresolved = Question(id="q2", name="Unresolved Question", is_resolved=False)
 
-        self.assertFalse(
-            question_resolved.is_blocked(graph), "Resolved question should not block"
-        )
-        self.assertTrue(
-            question_unresolved.is_blocked(graph), "Unresolved question should block"
-        )
+        self.assertFalse(question_resolved.is_blocked(graph), "Resolved question should not block")
+        self.assertTrue(question_unresolved.is_blocked(graph), "Unresolved question should block")
 
         # Test ProblemNode
         problem = Problem(id="p1", name="Problem")
@@ -294,12 +355,8 @@ class TestBlockingNode(unittest.TestCase):
         goal_achieved = Goal(id="g1", name="Achieved Goal", is_achieved=True)
         goal_unachieved = Goal(id="g2", name="Unachieved Goal", is_achieved=False)
 
-        self.assertFalse(
-            goal_achieved.is_blocked(graph), "Achieved goal should not block"
-        )
-        self.assertTrue(
-            goal_unachieved.is_blocked(graph), "Unachieved goal should block"
-        )
+        self.assertFalse(goal_achieved.is_blocked(graph), "Achieved goal should not block")
+        self.assertTrue(goal_unachieved.is_blocked(graph), "Unachieved goal should block")
 
     def test_propagation_multiple_levels(self):
         """Test blocking propagation through multiple levels of nodes."""

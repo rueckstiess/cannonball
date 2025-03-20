@@ -27,6 +27,50 @@ class Node:
         self.marker = marker
         self.ref = ref
 
+    @staticmethod
+    def from_contents(id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None) -> "Node":
+        """Creates a node with the correct derived class based on the content.
+
+        Args:
+            id: The unique ID of the node.
+            name: The name of the node.
+            marker: Optional marker that determines the node type:
+                None: Thought node
+                " ": Open task
+                "/": In-progress task
+                "x": Completed task
+                "-": Cancelled task
+                "?": Question node
+                "g": Goal node
+                "P": Problem node
+            ref: Optional reference for the node.
+
+        Returns:
+            An instance of the appropriate node subclass.
+
+        Raises:
+            ValueError: If an unknown marker is provided.
+        """
+
+        if marker is None:
+            return Thought(id, name, marker, ref)
+        if marker == " ":
+            return Task(id, name, ref, TaskType.OPEN)
+        if marker == "/":
+            return Task(id, name, ref, TaskType.IN_PROGRESS)
+        if marker == "x":
+            return Task(id, name, ref, TaskType.COMPLETED)
+        if marker == "-":
+            return Task(id, name, ref, TaskType.CANCELLED)
+        if marker == "?":
+            return Question(id, name, marker, ref)
+        if marker == "g":
+            return Goal(id, name, marker, ref)
+        if marker == "P":
+            return Problem(id, name, marker, ref)
+
+        raise ValueError(f"Unknown marker '{marker}' for node '{name}'")
+
     def __hash__(self) -> str:
         """Return a hash of the node ID."""
         return hash(self.id)
@@ -53,10 +97,7 @@ class BlockingNode(Node):
         """
         subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
         return (
-            any(
-                getattr(node, "is_blocked", lambda _: False)(subgraph)
-                for node in subgraph.successors(self)
-            )
+            any(getattr(node, "is_blocked", lambda _: False)(subgraph) for node in subgraph.successors(self))
             if subgraph
             else False
         )

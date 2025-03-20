@@ -36,11 +36,7 @@ def get_subgraph(
     # Filter by edge type if specified
     if edge_type is not None:
         # Create a subgraph with only the edges of the specified type
-        edges = [
-            (u, v)
-            for u, v, data in graph.edges(data=True)
-            if data.get("type") == edge_type.value
-        ]
+        edges = [(u, v) for u, v, data in graph.edges(data=True) if data.get("type") == edge_type.value]
         graph = graph.edge_subgraph(edges)
 
     if root_node is not None:
@@ -80,9 +76,7 @@ def get_raw_text_from_listtem(li: ListItem) -> Optional[str]:
     # return text
 
 
-def walk_list_items(
-    node: Element, parent=None, level=0, apply_fn: Optional[Callable] = None
-):
+def walk_list_items(node: Element, parent=None, level=0, apply_fn: Optional[Callable] = None):
     """Recursively walk the AST and yield all list items with parent and nesting level.
 
     Args:
