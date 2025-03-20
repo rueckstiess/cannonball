@@ -2,7 +2,6 @@ import pytest
 from cannonball.graph_mgr import GraphMgr
 from cannonball.nodes import Node
 import networkx as nx
-import unittest
 from cannonball.utils import EdgeType
 
 # Sample markdown string with hierarchical structure for testing
@@ -55,9 +54,9 @@ class TestGraphMgr:
 
         graph_mgr.add_node(node1)
         graph_mgr.add_node(node2)
-        graph_mgr.add_edge("parent", "child")
+        graph_mgr.add_edge(node1, node2)
 
-        assert ("parent", "child") in graph_mgr.nxgraph.edges
+        assert (node1, node2) in graph_mgr.nxgraph.edges
 
     def test_get_node_by_ref(self):
         """Test getting a node by reference."""
@@ -191,18 +190,18 @@ class TestGraphMgr:
         graph_mgr.add_node(node2)
         graph_mgr.add_node(node3)
 
-        graph_mgr.add_edge("1", "2")
-        graph_mgr.add_edge("1", "3")
-        graph_mgr.add_edge("2", "3")
+        graph_mgr.add_edge(node1, node2)
+        graph_mgr.add_edge(node1, node3)
+        graph_mgr.add_edge(node2, node3)
 
         sorted_nodes = graph_mgr.topological_sort()
 
         # Node 1 must come before Node 2
-        assert sorted_nodes.index("1") < sorted_nodes.index("2")
+        assert sorted_nodes.index(node1) < sorted_nodes.index(node2)
         # Node 2 must come before Node 3
-        assert sorted_nodes.index("2") < sorted_nodes.index("3")
+        assert sorted_nodes.index(node2) < sorted_nodes.index(node3)
         # Node 1 must come before Node 3
-        assert sorted_nodes.index("1") < sorted_nodes.index("3")
+        assert sorted_nodes.index(node1) < sorted_nodes.index(node3)
 
     def test_get_roots_and_leaves(self):
         """Test getting roots and leaves of the graph."""
@@ -250,8 +249,8 @@ class TestGraphMgr:
         graph_mgr.add_node(node2)
 
         # Create a cycle
-        graph_mgr.add_edge("1", "2")
-        graph_mgr.add_edge("2", "1")
+        graph_mgr.add_edge(node1, node2)
+        graph_mgr.add_edge(node2, node1)
 
         with pytest.raises(ValueError):
             graph_mgr.topological_sort()
@@ -841,7 +840,7 @@ class TestGraphMgr:
         # No cycle in REQUIRES edges, so should return False
         assert not graph_mixed.has_circular_dependencies()
 
-    def test_topological_sort(self):
+    def test_topological_sort_2(self):
         """Test topological sorting of nodes connected with requires edges."""
         # Create a directed acyclic graph
         graph_mgr = GraphMgr()
