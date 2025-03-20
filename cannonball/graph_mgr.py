@@ -12,15 +12,33 @@ import uuid
 
 
 class GraphMgr:
-    """A graph manager that manages a directed acyclic graph of nodes from markdown list items."""
+    """A graph manager that manages a directed graph of nodes from markdown list items."""
 
     parser = Markdown()
 
-    def __init__(self, allow_cycles: bool = False) -> None:
+    def __init__(self) -> None:
         """Initialize a new graph manager with an empty graph."""
         self.nxgraph = nx.DiGraph()
         self.nodes_by_ref = {}  # Maps reference IDs to node IDs
-        self.allow_cycles = allow_cycles
+
+    @classmethod
+    def from_graph(cls, graph: nx.DiGraph) -> "GraphMgr":
+        """Create a GraphMgr instance from an existing NetworkX graph.
+
+        Args:
+            graph: A NetworkX directed graph.
+
+        Returns:
+            A GraphMgr instance containing the provided graph.
+        """
+        instance = cls()
+        instance.nxgraph = graph
+        instance.nodes_by_ref = {
+            node: data.get("ref")
+            for node, data in graph.nodes(data=True)
+            if data.get("ref")
+        }
+        return instance
 
     def add_node(self, node: Node) -> None:
         """Add a node to the graph.
@@ -28,23 +46,23 @@ class GraphMgr:
         Args:
             node: The node to add.
         """
-        self.nxgraph.add_node(node, **node.__dict__)
+        self.nxgraph.add_node(node, **node.to_dict())
 
         # If the node has a reference, add it to the ref mapping
         if node.ref:
             self.nodes_by_ref[node.ref] = node
 
     def add_edge(
-        self, parent_id: str, child_id: str, edge_type: EdgeType = EdgeType.REQUIRES
+        self, parent: Node, child: Node, edge_type: EdgeType = EdgeType.REQUIRES
     ) -> None:
         """Add a directed edge from parent to child with an edge type.
 
         Args:
-            parent_id: The ID of the parent node.
-            child_id: The ID of the child node.
+            parent: The parent node.
+            child: The child node.
             edge_type: The type of edge (default is EdgeType.REQUIRES).
         """
-        self.nxgraph.add_edge(parent_id, child_id, type=edge_type.value)
+        self.nxgraph.add_edge(parent, child, type=edge_type.value)
 
     def get_node_by_ref(self, ref: str) -> Optional[Node]:
         """Get a node by its reference ID.
@@ -68,23 +86,43 @@ class GraphMgr:
         """
         return self.nxgraph.nodes[node]
 
-    def is_acyclic(self) -> bool:
-        """Check if the graph is acyclic.
+    def get_requires_subgraph(self) -> nx.DiGraph:
+        """Get the subgraph of all nodes connected with requires edges.
 
         Returns:
-            True if the graph is acyclic, False otherwise.
+            A directed subgraph containing only the nodes connected with "requires" edges.
         """
-        return nx.is_directed_acyclic_graph(self.nxgraph)
+        requires_edges = [
+            (u, v)
+            for u, v, data in self.nxgraph.edges(data=True)
+            if data.get("type") == EdgeType.REQUIRES.value
+        ]
+        return self.nxgraph.edge_subgraph(requires_edges)
+
+    def has_circular_dependencies(self) -> bool:
+        """Check if the subgraph connected with "requires" edges is acyclic.
+
+        Returns:
+            True if the subsgraph is acyclic, False otherwise.
+        """
+        requires_subgraph = self.get_requires_subgraph()
+        # Check if the subgraph is acyclic
+        return not nx.is_directed_acyclic_graph(requires_subgraph)
 
     def topological_sort(self) -> List[Node]:
-        """Return nodes in topological order if graph is a DAG.
+        """Return nodes in topological order based on "requires" edges.
 
         Returns:
             List of node IDs in topological order.
         """
-        if not self.is_acyclic():
-            raise ValueError("Graph contains cycles and cannot be topologically sorted")
-        return list(nx.topological_sort(self.nxgraph))
+        requires_subgraph = self.get_requires_subgraph()
+
+        if not nx.is_directed_acyclic_graph(requires_subgraph):
+            raise ValueError(
+                "Graph has circular dependencies and cannot be topologically sorted"
+            )
+
+        return list(nx.topological_sort(requires_subgraph))
 
     def get_roots(self) -> List[Node]:
         """Get all root nodes (nodes with no incoming edges).
@@ -123,10 +161,9 @@ class GraphMgr:
             text = get_raw_text_from_listtem(list_item)
             marker, ref, ref_links = extract_node_marker_and_refs(text)
 
-            # Always use a UUID for node ID to ensure uniqueness
-
             # Create and add the node
-            node = Node(id=str(uuid.uuid4())[:8], name=text, marker=marker, ref=ref)
+            node_id = str(uuid.uuid4())[:8]
+            node = Node.from_contents(id=node_id, name=text, marker=marker, ref=ref)
             instance.add_node(node)
 
             # Map the ListItem to its node ID for the second pass
