@@ -12,15 +12,29 @@ import uuid
 
 
 class GraphMgr:
-    """A graph manager that manages a directed acyclic graph of nodes from markdown list items."""
+    """A graph manager that manages a directed graph of nodes from markdown list items."""
 
     parser = Markdown()
 
-    def __init__(self, allow_cycles: bool = False) -> None:
+    def __init__(self) -> None:
         """Initialize a new graph manager with an empty graph."""
         self.nxgraph = nx.DiGraph()
         self.nodes_by_ref = {}  # Maps reference IDs to node IDs
-        self.allow_cycles = allow_cycles
+
+    @classmethod
+    def from_graph(cls, graph: nx.DiGraph) -> "GraphMgr":
+        """Create a GraphMgr instance from an existing NetworkX graph.
+
+        Args:
+            graph: A NetworkX directed graph.
+
+        Returns:
+            A GraphMgr instance containing the provided graph.
+        """
+        instance = cls()
+        instance.nxgraph = graph
+        instance.nodes_by_ref = {node: data.get("ref") for node, data in graph.nodes(data=True) if data.get("ref")}
+        return instance
 
     def add_node(self, node: Node) -> None:
         """Add a node to the graph.
@@ -34,17 +48,15 @@ class GraphMgr:
         if node.ref:
             self.nodes_by_ref[node.ref] = node
 
-    def add_edge(
-        self, parent_id: str, child_id: str, edge_type: EdgeType = EdgeType.REQUIRES
-    ) -> None:
+    def add_edge(self, parent: Node, child: Node, edge_type: EdgeType = EdgeType.REQUIRES) -> None:
         """Add a directed edge from parent to child with an edge type.
 
         Args:
-            parent_id: The ID of the parent node.
-            child_id: The ID of the child node.
+            parent: The parent node.
+            child: The child node.
             edge_type: The type of edge (default is EdgeType.REQUIRES).
         """
-        self.nxgraph.add_edge(parent_id, child_id, type=edge_type.value)
+        self.nxgraph.add_edge(parent, child, type=edge_type.value)
 
     def get_node_by_ref(self, ref: str) -> Optional[Node]:
         """Get a node by its reference ID.
@@ -68,23 +80,39 @@ class GraphMgr:
         """
         return self.nxgraph.nodes[node]
 
-    def is_acyclic(self) -> bool:
-        """Check if the graph is acyclic.
+    def get_requires_subgraph(self) -> nx.DiGraph:
+        """Get the subgraph of all nodes connected with requires edges.
 
         Returns:
-            True if the graph is acyclic, False otherwise.
+            A directed subgraph containing only the nodes connected with "requires" edges.
         """
-        return nx.is_directed_acyclic_graph(self.nxgraph)
+        requires_edges = [
+            (u, v) for u, v, data in self.nxgraph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
+        ]
+        return self.nxgraph.edge_subgraph(requires_edges)
+
+    def has_circular_dependencies(self) -> bool:
+        """Check if the subgraph connected with "requires" edges is acyclic.
+
+        Returns:
+            True if the subsgraph is acyclic, False otherwise.
+        """
+        requires_subgraph = self.get_requires_subgraph()
+        # Check if the subgraph is acyclic
+        return not nx.is_directed_acyclic_graph(requires_subgraph)
 
     def topological_sort(self) -> List[Node]:
-        """Return nodes in topological order if graph is a DAG.
+        """Return nodes in topological order based on "requires" edges.
 
         Returns:
             List of node IDs in topological order.
         """
-        if not self.is_acyclic():
-            raise ValueError("Graph contains cycles and cannot be topologically sorted")
-        return list(nx.topological_sort(self.nxgraph))
+        requires_subgraph = self.get_requires_subgraph()
+
+        if not nx.is_directed_acyclic_graph(requires_subgraph):
+            raise ValueError("Graph has circular dependencies and cannot be topologically sorted")
+
+        return list(nx.topological_sort(requires_subgraph))
 
     def get_roots(self) -> List[Node]:
         """Get all root nodes (nodes with no incoming edges).
@@ -154,9 +182,7 @@ class GraphMgr:
                     target_node = instance.get_node_by_ref(ref_id)
                     if target_node and target_node != node:  # Avoid self-references
                         # Create a reference edge from source to target
-                        instance.add_edge(
-                            node, target_node, edge_type=EdgeType.REFERENCES
-                        )
+                        instance.add_edge(node, target_node, edge_type=EdgeType.REFERENCES)
 
         return instance
 
@@ -168,15 +194,10 @@ class GraphMgr:
         """
         return {
             "nodes": [self.nxgraph.nodes[n] for n in self.nxgraph.nodes()],
-            "edges": [
-                {"source": s, "target": t, **d}
-                for s, t, d in self.nxgraph.edges(data=True)
-            ],
+            "edges": [{"source": s, "target": t, **d} for s, t, d in self.nxgraph.edges(data=True)],
         }
 
-    def to_markdown(
-        self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2
-    ) -> str:
+    def to_markdown(self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2) -> str:
         """Convert the graph back to a markdown string with hierarchical list items.
 
         Args:
@@ -199,9 +220,7 @@ class GraphMgr:
 
         # Get a list of edges with type="requires"
         requires_edges = [
-            (u, v)
-            for u, v, data in self.nxgraph.edges(data=True)
-            if data.get("type") == EdgeType.REQUIRES.value
+            (u, v) for u, v, data in self.nxgraph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
         ]
 
         # Create the subgraph
@@ -211,9 +230,7 @@ class GraphMgr:
             indent = " " * indent
 
         # Recursive function to process each node and its children
-        def process_node(
-            graph: nx.DiGraph, node: Node, level: int, visited: set
-        ) -> str:
+        def process_node(graph: nx.DiGraph, node: Node, level: int, visited: set) -> str:
             if node in visited:
                 return ""  # Prevent cycles
 

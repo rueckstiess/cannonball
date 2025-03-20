@@ -1,8 +1,9 @@
 import pytest
-from cannonball.graph import GraphMgr
+from cannonball.graph_mgr import GraphMgr
 from cannonball.nodes import Node
 import networkx as nx
 import unittest
+from cannonball.utils import EdgeType
 
 # Sample markdown string with hierarchical structure for testing
 SAMPLE_MARKDOWN = """
@@ -170,14 +171,14 @@ class TestGraphMgr:
         graph_mgr.add_node(node2)
         graph_mgr.add_node(node3)
 
-        graph_mgr.add_edge("1", "2")
-        graph_mgr.add_edge("2", "3")
+        graph_mgr.add_edge(node1, node2)
+        graph_mgr.add_edge(node2, node3)
 
-        assert graph_mgr.is_acyclic() is True
+        assert graph_mgr.has_circular_dependencies() is False
 
         # Add an edge to create a cycle
-        graph_mgr.add_edge("3", "1")
-        assert graph_mgr.is_acyclic() is False
+        graph_mgr.add_edge(node3, node1)
+        assert graph_mgr.has_circular_dependencies() is True
 
     def test_topological_sort(self):
         """Test topological sorting."""
@@ -317,20 +318,12 @@ class TestGraphMgr:
                 grandchild = node
 
         # Make sure we found the nodes
-        assert child_with_link is not None, (
-            "Could not find node with 'Child with reference link'"
-        )
-        assert grandchild is not None, (
-            "Could not find node with 'Grandchild referencing'"
-        )
+        assert child_with_link is not None, "Could not find node with 'Child with reference link'"
+        assert grandchild is not None, "Could not find node with 'Grandchild referencing'"
 
         # Verify reference links created edges
-        assert (child_with_link, root) in graph_mgr.nxgraph.edges, (
-            "Missing reference edge from child to root"
-        )
-        assert (grandchild, root) in graph_mgr.nxgraph.edges, (
-            "Missing reference edge from grandchild to root"
-        )
+        assert (child_with_link, root) in graph_mgr.nxgraph.edges, "Missing reference edge from child to root"
+        assert (grandchild, root) in graph_mgr.nxgraph.edges, "Missing reference edge from grandchild to root"
         assert (grandchild, child) in graph_mgr.nxgraph.edges, (
             "Missing reference edge from grandchild to independent node"
         )
@@ -343,12 +336,8 @@ class TestGraphMgr:
         print(markdown_output)
 
         # Check that the reference links appear in the output
-        assert "[[#^root]]" in markdown_output, (
-            "Reference link to root missing in output"
-        )
-        assert "[[#^child]]" in markdown_output, (
-            "Reference link to child missing in output"
-        )
+        assert "[[#^root]]" in markdown_output, "Reference link to root missing in output"
+        assert "[[#^child]]" in markdown_output, "Reference link to child missing in output"
 
     def test_multi_character_markers_with_reference_links(self):
         """Test handling of multi-character markers with reference links."""
@@ -409,15 +398,9 @@ class TestGraphMgr:
         assert graph_mgr.nxgraph.nodes[task_id]["marker"] == "completed"
 
         # Verify reference links created edges
-        assert (todo_node_id, proj_id) in graph_mgr.nxgraph.edges, (
-            "Missing reference edge from todo to project"
-        )
-        assert (critical_node_id, proj_id) in graph_mgr.nxgraph.edges, (
-            "Missing reference edge from critical to project"
-        )
-        assert (note_node_id, task_id) in graph_mgr.nxgraph.edges, (
-            "Missing reference edge from note to task"
-        )
+        assert (todo_node_id, proj_id) in graph_mgr.nxgraph.edges, "Missing reference edge from todo to project"
+        assert (critical_node_id, proj_id) in graph_mgr.nxgraph.edges, "Missing reference edge from critical to project"
+        assert (note_node_id, task_id) in graph_mgr.nxgraph.edges, "Missing reference edge from note to task"
 
         # Test the to_markdown function to ensure reference links are preserved
         markdown_output = graph_mgr.to_markdown()
@@ -468,9 +451,7 @@ class TestGraphMgr:
 
         # Clean up whitespace for comparison
         def clean_md(md):
-            return "\n".join(
-                line.strip() for line in md.strip().split("\n") if line.strip()
-            )
+            return "\n".join(line.strip() for line in md.strip().split("\n") if line.strip())
 
         # The structure should be preserved
         clean_md(original_md)
@@ -529,9 +510,7 @@ class TestGraphMgr:
         graph_mgr = GraphMgr()
         root = Node(id="root", name="[A] Root node ^root", marker="A", ref="root")
         child = Node(id="child", name="[B] Child node ^child", marker="B", ref="child")
-        grandchild = Node(
-            id="grandchild", name="[C] Grandchild node ^gc", marker="C", ref="gc"
-        )
+        grandchild = Node(id="grandchild", name="[C] Grandchild node ^gc", marker="C", ref="gc")
 
         graph_mgr.add_node(root)
         graph_mgr.add_node(child)
@@ -717,9 +696,7 @@ class TestGraphMgr:
         graph_mgr = GraphMgr()
 
         # Add nodes with special cases
-        node1 = Node(
-            id="n1", name="Regular node with no marker ^nomark", marker="", ref="nomark"
-        )
+        node1 = Node(id="n1", name="Regular node with no marker ^nomark", marker="", ref="nomark")
         node2 = Node(id="n2", name="[x] Node with no reference", marker="x", ref=None)
         node3 = Node(
             id="n3",
@@ -766,6 +743,171 @@ class TestGraphMgr:
         # Verify the regenerated graph has nodes
         assert len(new_graph.nxgraph.nodes) > 0, "No nodes in regenerated graph"
 
+    def test_get_requires_subgraph(self):
+        """Test that get_requires_subgraph returns only the edges with REQUIRES type."""
+        # Create a graph with both REQUIRES and REFERENCES edges
+        graph_mgr = GraphMgr()
 
-if __name__ == "__main__":
-    unittest.main()
+        # Create nodes
+        node_a = Node(id="a", name="Node A")
+        node_b = Node(id="b", name="Node B")
+        node_c = Node(id="c", name="Node C")
+        node_d = Node(id="d", name="Node D")
+
+        # Add nodes to graph
+        graph_mgr.add_node(node_a)
+        graph_mgr.add_node(node_b)
+        graph_mgr.add_node(node_c)
+        graph_mgr.add_node(node_d)
+
+        # Add edges of different types
+        graph_mgr.add_edge(node_a, node_b, edge_type=EdgeType.REQUIRES)  # A requires B
+        graph_mgr.add_edge(node_b, node_c, edge_type=EdgeType.REQUIRES)  # B requires C
+        graph_mgr.add_edge(node_a, node_d, edge_type=EdgeType.REFERENCES)  # A references D
+
+        # Get requires subgraph
+        requires_subgraph = graph_mgr.get_requires_subgraph()
+
+        # Check the subgraph contains only the REQUIRES edges
+        assert len(requires_subgraph.edges) == 2
+        assert requires_subgraph.has_edge(node_a, node_b)
+        assert requires_subgraph.has_edge(node_b, node_c)
+        assert not requires_subgraph.has_edge(node_a, node_d)
+
+        # Check nodes are preserved
+        assert len(requires_subgraph.nodes) == 3
+        assert node_a in requires_subgraph.nodes
+        assert node_b in requires_subgraph.nodes
+        assert node_c in requires_subgraph.nodes
+        assert node_d not in requires_subgraph.nodes
+
+    def test_has_circular_dependencies(self):
+        """Test checking for circular dependencies in the graph."""
+        # Create a graph without circular dependencies
+        graph_acyclic = GraphMgr()
+
+        # Create nodes
+        node_a = Node(id="a", name="Node A")
+        node_b = Node(id="b", name="Node B")
+        node_c = Node(id="c", name="Node C")
+
+        # Add nodes to graph
+        graph_acyclic.add_node(node_a)
+        graph_acyclic.add_node(node_b)
+        graph_acyclic.add_node(node_c)
+
+        # Add edges forming a directed acyclic graph (DAG)
+        graph_acyclic.add_edge(node_a, node_b, edge_type=EdgeType.REQUIRES)
+        graph_acyclic.add_edge(node_b, node_c, edge_type=EdgeType.REQUIRES)
+
+        # Test that it correctly identifies a graph without cycles
+        assert not graph_acyclic.has_circular_dependencies()
+
+        # Create another graph with a cycle
+        graph_cyclic = GraphMgr()
+
+        # Create nodes
+        node_x = Node(id="x", name="Node X")
+        node_y = Node(id="y", name="Node Y")
+        node_z = Node(id="z", name="Node Z")
+
+        # Add nodes to graph
+        graph_cyclic.add_node(node_x)
+        graph_cyclic.add_node(node_y)
+        graph_cyclic.add_node(node_z)
+
+        # Add edges forming a cycle
+        graph_cyclic.add_edge(node_x, node_y, edge_type=EdgeType.REQUIRES)
+        graph_cyclic.add_edge(node_y, node_z, edge_type=EdgeType.REQUIRES)
+        graph_cyclic.add_edge(node_z, node_x, edge_type=EdgeType.REQUIRES)
+
+        # Test that it correctly identifies a graph with cycles
+        assert graph_cyclic.has_circular_dependencies()
+
+        # Test a graph with both REQUIRES and REFERENCES edges, but only REQUIRES forms a cycle
+        graph_mixed = GraphMgr()
+
+        # Add nodes to graph
+        node_p = Node(id="p", name="Node P")
+        node_q = Node(id="q", name="Node Q")
+
+        graph_mixed.add_node(node_p)
+        graph_mixed.add_node(node_q)
+
+        # Add edges - only the REQUIRES type should affect circular dependency checking
+        graph_mixed.add_edge(node_p, node_q, edge_type=EdgeType.REQUIRES)
+        graph_mixed.add_edge(node_q, node_p, edge_type=EdgeType.REFERENCES)
+
+        # No cycle in REQUIRES edges, so should return False
+        assert not graph_mixed.has_circular_dependencies()
+
+    def test_topological_sort(self):
+        """Test topological sorting of nodes connected with requires edges."""
+        # Create a directed acyclic graph
+        graph_mgr = GraphMgr()
+
+        # Create nodes
+        node_a = Node(id="a", name="Node A")
+        node_b = Node(id="b", name="Node B")
+        node_c = Node(id="c", name="Node C")
+        node_d = Node(id="d", name="Node D")
+        node_e = Node(id="e", name="Node E")
+
+        # Add nodes to graph
+        graph_mgr.add_node(node_a)
+        graph_mgr.add_node(node_b)
+        graph_mgr.add_node(node_c)
+        graph_mgr.add_node(node_d)
+        graph_mgr.add_node(node_e)
+
+        # Add REQUIRES edges
+        graph_mgr.add_edge(node_a, node_b, edge_type=EdgeType.REQUIRES)
+        graph_mgr.add_edge(node_a, node_c, edge_type=EdgeType.REQUIRES)
+        graph_mgr.add_edge(node_b, node_d, edge_type=EdgeType.REQUIRES)
+        graph_mgr.add_edge(node_c, node_d, edge_type=EdgeType.REQUIRES)
+        graph_mgr.add_edge(node_d, node_e, edge_type=EdgeType.REQUIRES)
+
+        # Add a REFERENCES edge that should be ignored in topological sort
+        graph_mgr.add_edge(node_e, node_a, edge_type=EdgeType.REFERENCES)
+
+        # Get the topological sort
+        sorted_nodes = graph_mgr.topological_sort()
+
+        # Verify the sort is valid
+        # In a valid topological sort, for every directed edge (u, v),
+        # u comes before v in the ordering
+        for i, node in enumerate(sorted_nodes):
+            for successor in graph_mgr.get_requires_subgraph().successors(node):
+                successor_index = sorted_nodes.index(successor)
+                assert i < successor_index, f"Node {node.id} should come before {successor.id} in topological sort"
+
+        # Check the specific order - node_a should be first
+        assert sorted_nodes[0] == node_a
+        # node_e should be last
+        assert sorted_nodes[-1] == node_e
+
+    def test_topological_sort_with_cycle(self):
+        """Test that topological_sort raises ValueError when graph has circular dependencies."""
+        # Create a graph with a cycle
+        graph_mgr = GraphMgr()
+
+        # Create nodes
+        node_a = Node(id="a", name="Node A")
+        node_b = Node(id="b", name="Node B")
+        node_c = Node(id="c", name="Node C")
+
+        # Add nodes to graph
+        graph_mgr.add_node(node_a)
+        graph_mgr.add_node(node_b)
+        graph_mgr.add_node(node_c)
+
+        # Add edges forming a cycle
+        graph_mgr.add_edge(node_a, node_b, edge_type=EdgeType.REQUIRES)
+        graph_mgr.add_edge(node_b, node_c, edge_type=EdgeType.REQUIRES)
+        graph_mgr.add_edge(node_c, node_a, edge_type=EdgeType.REQUIRES)
+
+        # Attempt topological sort - should raise ValueError
+        with pytest.raises(ValueError) as excinfo:
+            graph_mgr.topological_sort()
+
+        assert "circular dependencies" in str(excinfo.value).lower()
