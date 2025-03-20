@@ -317,12 +317,20 @@ class TestGraphMgr:
                 grandchild = node
 
         # Make sure we found the nodes
-        assert child_with_link is not None, "Could not find node with 'Child with reference link'"
-        assert grandchild is not None, "Could not find node with 'Grandchild referencing'"
+        assert child_with_link is not None, (
+            "Could not find node with 'Child with reference link'"
+        )
+        assert grandchild is not None, (
+            "Could not find node with 'Grandchild referencing'"
+        )
 
         # Verify reference links created edges
-        assert (child_with_link, root) in graph_mgr.nxgraph.edges, "Missing reference edge from child to root"
-        assert (grandchild, root) in graph_mgr.nxgraph.edges, "Missing reference edge from grandchild to root"
+        assert (child_with_link, root) in graph_mgr.nxgraph.edges, (
+            "Missing reference edge from child to root"
+        )
+        assert (grandchild, root) in graph_mgr.nxgraph.edges, (
+            "Missing reference edge from grandchild to root"
+        )
         assert (grandchild, child) in graph_mgr.nxgraph.edges, (
             "Missing reference edge from grandchild to independent node"
         )
@@ -335,8 +343,12 @@ class TestGraphMgr:
         print(markdown_output)
 
         # Check that the reference links appear in the output
-        assert "[[#^root]]" in markdown_output, "Reference link to root missing in output"
-        assert "[[#^child]]" in markdown_output, "Reference link to child missing in output"
+        assert "[[#^root]]" in markdown_output, (
+            "Reference link to root missing in output"
+        )
+        assert "[[#^child]]" in markdown_output, (
+            "Reference link to child missing in output"
+        )
 
     def test_multi_character_markers_with_reference_links(self):
         """Test handling of multi-character markers with reference links."""
@@ -397,9 +409,15 @@ class TestGraphMgr:
         assert graph_mgr.nxgraph.nodes[task_id]["marker"] == "completed"
 
         # Verify reference links created edges
-        assert (todo_node_id, proj_id) in graph_mgr.nxgraph.edges, "Missing reference edge from todo to project"
-        assert (critical_node_id, proj_id) in graph_mgr.nxgraph.edges, "Missing reference edge from critical to project"
-        assert (note_node_id, task_id) in graph_mgr.nxgraph.edges, "Missing reference edge from note to task"
+        assert (todo_node_id, proj_id) in graph_mgr.nxgraph.edges, (
+            "Missing reference edge from todo to project"
+        )
+        assert (critical_node_id, proj_id) in graph_mgr.nxgraph.edges, (
+            "Missing reference edge from critical to project"
+        )
+        assert (note_node_id, task_id) in graph_mgr.nxgraph.edges, (
+            "Missing reference edge from note to task"
+        )
 
         # Test the to_markdown function to ensure reference links are preserved
         markdown_output = graph_mgr.to_markdown()
@@ -450,7 +468,9 @@ class TestGraphMgr:
 
         # Clean up whitespace for comparison
         def clean_md(md):
-            return "\n".join(line.strip() for line in md.strip().split("\n") if line.strip())
+            return "\n".join(
+                line.strip() for line in md.strip().split("\n") if line.strip()
+            )
 
         # The structure should be preserved
         clean_md(original_md)
@@ -509,7 +529,9 @@ class TestGraphMgr:
         graph_mgr = GraphMgr()
         root = Node(id="root", name="[A] Root node ^root", marker="A", ref="root")
         child = Node(id="child", name="[B] Child node ^child", marker="B", ref="child")
-        grandchild = Node(id="grandchild", name="[C] Grandchild node ^gc", marker="C", ref="gc")
+        grandchild = Node(
+            id="grandchild", name="[C] Grandchild node ^gc", marker="C", ref="gc"
+        )
 
         graph_mgr.add_node(root)
         graph_mgr.add_node(child)
@@ -695,7 +717,9 @@ class TestGraphMgr:
         graph_mgr = GraphMgr()
 
         # Add nodes with special cases
-        node1 = Node(id="n1", name="Regular node with no marker ^nomark", marker="", ref="nomark")
+        node1 = Node(
+            id="n1", name="Regular node with no marker ^nomark", marker="", ref="nomark"
+        )
         node2 = Node(id="n2", name="[x] Node with no reference", marker="x", ref=None)
         node3 = Node(
             id="n3",
@@ -762,7 +786,9 @@ class TestGraphMgr:
         # Add edges of different types
         graph_mgr.add_edge(node_a, node_b, edge_type=EdgeType.REQUIRES)  # A requires B
         graph_mgr.add_edge(node_b, node_c, edge_type=EdgeType.REQUIRES)  # B requires C
-        graph_mgr.add_edge(node_a, node_d, edge_type=EdgeType.REFERENCES)  # A references D
+        graph_mgr.add_edge(
+            node_a, node_d, edge_type=EdgeType.REFERENCES
+        )  # A references D
 
         # Get requires subgraph
         requires_subgraph = graph_mgr.get_requires_subgraph()
@@ -878,7 +904,9 @@ class TestGraphMgr:
         for i, node in enumerate(sorted_nodes):
             for successor in graph_mgr.get_requires_subgraph().successors(node):
                 successor_index = sorted_nodes.index(successor)
-                assert i < successor_index, f"Node {node.id} should come before {successor.id} in topological sort"
+                assert i < successor_index, (
+                    f"Node {node.id} should come before {successor.id} in topological sort"
+                )
 
         # Check the specific order - node_a should be first
         assert sorted_nodes[0] == node_a

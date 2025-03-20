@@ -33,7 +33,11 @@ class GraphMgr:
         """
         instance = cls()
         instance.nxgraph = graph
-        instance.nodes_by_ref = {node: data.get("ref") for node, data in graph.nodes(data=True) if data.get("ref")}
+        instance.nodes_by_ref = {
+            node: data.get("ref")
+            for node, data in graph.nodes(data=True)
+            if data.get("ref")
+        }
         return instance
 
     def add_node(self, node: Node) -> None:
@@ -48,7 +52,9 @@ class GraphMgr:
         if node.ref:
             self.nodes_by_ref[node.ref] = node
 
-    def add_edge(self, parent: Node, child: Node, edge_type: EdgeType = EdgeType.REQUIRES) -> None:
+    def add_edge(
+        self, parent: Node, child: Node, edge_type: EdgeType = EdgeType.REQUIRES
+    ) -> None:
         """Add a directed edge from parent to child with an edge type.
 
         Args:
@@ -87,7 +93,9 @@ class GraphMgr:
             A directed subgraph containing only the nodes connected with "requires" edges.
         """
         requires_edges = [
-            (u, v) for u, v, data in self.nxgraph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
+            (u, v)
+            for u, v, data in self.nxgraph.edges(data=True)
+            if data.get("type") == EdgeType.REQUIRES.value
         ]
         return self.nxgraph.edge_subgraph(requires_edges)
 
@@ -110,7 +118,9 @@ class GraphMgr:
         requires_subgraph = self.get_requires_subgraph()
 
         if not nx.is_directed_acyclic_graph(requires_subgraph):
-            raise ValueError("Graph has circular dependencies and cannot be topologically sorted")
+            raise ValueError(
+                "Graph has circular dependencies and cannot be topologically sorted"
+            )
 
         return list(nx.topological_sort(requires_subgraph))
 
@@ -181,7 +191,9 @@ class GraphMgr:
                     target_node = instance.get_node_by_ref(ref_id)
                     if target_node and target_node != node:  # Avoid self-references
                         # Create a reference edge from source to target
-                        instance.add_edge(node, target_node, edge_type=EdgeType.REFERENCES)
+                        instance.add_edge(
+                            node, target_node, edge_type=EdgeType.REFERENCES
+                        )
 
         return instance
 
@@ -193,10 +205,15 @@ class GraphMgr:
         """
         return {
             "nodes": [self.nxgraph.nodes[n] for n in self.nxgraph.nodes()],
-            "edges": [{"source": s, "target": t, **d} for s, t, d in self.nxgraph.edges(data=True)],
+            "edges": [
+                {"source": s, "target": t, **d}
+                for s, t, d in self.nxgraph.edges(data=True)
+            ],
         }
 
-    def to_markdown(self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2) -> str:
+    def to_markdown(
+        self, root_nodes: Optional[List[Node]] = None, indent: int | str = 2
+    ) -> str:
         """Convert the graph back to a markdown string with hierarchical list items.
 
         Args:
@@ -219,7 +236,9 @@ class GraphMgr:
 
         # Get a list of edges with type="requires"
         requires_edges = [
-            (u, v) for u, v, data in self.nxgraph.edges(data=True) if data.get("type") == EdgeType.REQUIRES.value
+            (u, v)
+            for u, v, data in self.nxgraph.edges(data=True)
+            if data.get("type") == EdgeType.REQUIRES.value
         ]
 
         # Create the subgraph
@@ -229,7 +248,9 @@ class GraphMgr:
             indent = " " * indent
 
         # Recursive function to process each node and its children
-        def process_node(graph: nx.DiGraph, node: Node, level: int, visited: set) -> str:
+        def process_node(
+            graph: nx.DiGraph, node: Node, level: int, visited: set
+        ) -> str:
             if node in visited:
                 return ""  # Prevent cycles
 

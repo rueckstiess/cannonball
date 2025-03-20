@@ -30,7 +30,9 @@ class Node:
         self._node_attributes = ("id", "name", "marker", "ref")
 
     @staticmethod
-    def from_contents(id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None) -> "Node":
+    def from_contents(
+        id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None
+    ) -> "Node":
         """Creates a node with the correct derived class based on the content.
 
         Args:
@@ -104,7 +106,10 @@ class BlockingNode(Node):
         """
         subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
         return (
-            any(getattr(node, "is_blocked", lambda _: False)(subgraph) for node in subgraph.successors(self))
+            any(
+                getattr(node, "is_blocked", lambda _: False)(subgraph)
+                for node in subgraph.successors(self)
+            )
             if subgraph
             else False
         )
