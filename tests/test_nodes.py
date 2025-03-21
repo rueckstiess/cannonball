@@ -356,16 +356,22 @@ class TestBlockingNode(unittest.TestCase):
         question_resolved = Question(id="q1", name="Resolved Question", is_resolved=True)
         question_unresolved = Question(id="q2", name="Unresolved Question", is_resolved=False)
 
+        graph.add_node(question_resolved, **question_resolved.to_dict())
+        graph.add_node(question_unresolved, **question_unresolved.to_dict())
+
         self.assertFalse(question_resolved.is_blocked(graph), "Resolved question should not block")
         self.assertTrue(question_unresolved.is_blocked(graph), "Unresolved question should block")
 
         # Test ProblemNode
         problem = Problem(id="p1", name="Problem")
+        graph.add_node(problem, **problem.to_dict())
         self.assertTrue(problem.is_blocked(graph), "Problem should always block")
 
         # Test GoalNode
         goal_achieved = Goal(id="g1", name="Achieved Goal", is_achieved=True)
         goal_unachieved = Goal(id="g2", name="Unachieved Goal", is_achieved=False)
+        graph.add_node(goal_achieved, **goal_achieved.to_dict())
+        graph.add_node(goal_unachieved, **goal_unachieved.to_dict())
 
         self.assertFalse(goal_achieved.is_blocked(graph), "Achieved goal should not block")
         self.assertTrue(goal_unachieved.is_blocked(graph), "Unachieved goal should block")
