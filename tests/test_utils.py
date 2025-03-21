@@ -183,7 +183,9 @@ class TestGetRawTextFromListItem:
         # Test with formatted text (bold)
         list_md_bold = "- Sample **bold** text"
         ast_bold = md.parse(list_md_bold)
-        list_item_bold = ast_bold.children[0].children[0]  # Get the ListItem inside the List
+        list_item_bold = ast_bold.children[0].children[
+            0
+        ]  # Get the ListItem inside the List
 
         result_bold = get_raw_text_from_listtem(list_item_bold)
         assert result_bold == "Sample **bold** text"
@@ -345,7 +347,9 @@ class TestPrintAst:
         # Mock get_raw_text_from_listtem function to return predictable text
         with patch("cannonball.utils.get_raw_text_from_listtem") as mock_get_text:
             mock_get_text.side_effect = (
-                lambda item: "Item 1" if item == list_item1 else ("Nested Item" if item == nested_item else "Item 2")
+                lambda item: "Item 1"
+                if item == list_item1
+                else ("Nested Item" if item == nested_item else "Item 2")
             )
 
             # Print the AST
@@ -427,18 +431,24 @@ class TestGetSubgraph(unittest.TestCase):
 
     def test_get_subgraph_combined_filters(self):
         # Test with both root node and edge type filters
-        subgraph = get_subgraph(self.graph, root_node="n2", edge_filter=EdgeType.REQUIRES)
+        subgraph = get_subgraph(
+            self.graph, root_node="n2", edge_filter=EdgeType.REQUIRES
+        )
         # When we filter by REQUIRES from n2, we should only get n2->n3->n4
         self.assertEqual(len(subgraph.nodes), 3)  # n2, n3, n4
         self.assertEqual(len(subgraph.edges), 2)  # n2->n3, n3->n4
 
         # Another combined test - n1 with REFERENCES edges only includes n1->n3
-        subgraph = get_subgraph(self.graph, root_node="n1", edge_filter=EdgeType.REFERENCES)
+        subgraph = get_subgraph(
+            self.graph, root_node="n1", edge_filter=EdgeType.REFERENCES
+        )
         self.assertEqual(len(subgraph.nodes), 3)  # n1, n3, n6
         self.assertEqual(len(subgraph.edges), 2)  # n1->n3->n6
 
         # Test with n3 as root and REFERENCES edges
-        subgraph = get_subgraph(self.graph, root_node="n3", edge_filter=EdgeType.REFERENCES)
+        subgraph = get_subgraph(
+            self.graph, root_node="n3", edge_filter=EdgeType.REFERENCES
+        )
         self.assertEqual(len(subgraph.nodes), 2)  # n3, n6
         self.assertEqual(len(subgraph.edges), 1)  # n3->n6
 
@@ -492,7 +502,9 @@ class TestGetSubgraph(unittest.TestCase):
         starts_with_r = lambda data: data.get("type", "").startswith("r")
         subgraph = get_subgraph(self.graph, edge_filter=starts_with_r)
 
-        self.assertEqual(len(subgraph.edges), 6)  # All edges in our test graph start with 'r'
+        self.assertEqual(
+            len(subgraph.edges), 6
+        )  # All edges in our test graph start with 'r'
 
         # Test filter that matches nothing
         no_match = lambda data: data.get("type", "") == "nonexistent"
@@ -575,7 +587,9 @@ class TestGetSubgraph(unittest.TestCase):
         strong_relation = lambda edge: edge.get("relation") == "strong"
 
         # Test combining node and edge filters
-        subgraph = get_subgraph(combined_graph, node_filter=string_nodes, edge_filter=strong_relation)
+        subgraph = get_subgraph(
+            combined_graph, node_filter=string_nodes, edge_filter=strong_relation
+        )
 
         # This should only include n1 and n2 nodes with the strong relation between them
         self.assertEqual(len(subgraph.nodes), 2)
@@ -610,7 +624,9 @@ class TestExtractStrContent(unittest.TestCase):
             ("      - Task 5", "Task 5"),
         ]
         for input_str, expected_output in test_cases:
-            assert extract_str_content(input_str) == expected_output, f"Failed for input: {input_str}"
+            assert extract_str_content(input_str) == expected_output, (
+                f"Failed for input: {input_str}"
+            )
 
 
 @with_markdown("""\
@@ -625,7 +641,9 @@ class TestSubGraphFromMarkdown:
         assert len(graph.edges) == 1
 
         subgraph = get_subgraph(
-            graph, root_node=nodes["Question"], node_filter=lambda n: not isinstance(n, AlternativeContainer)
+            graph,
+            root_node=nodes["Question"],
+            node_filter=lambda n: not isinstance(n, AlternativeContainer),
         )
         if len(subgraph) == 0:
             return False

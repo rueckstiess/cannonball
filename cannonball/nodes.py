@@ -30,7 +30,9 @@ class Node:
         self._node_attributes = ("id", "name", "marker", "ref")
 
     @staticmethod
-    def from_contents(id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None) -> "Node":
+    def from_contents(
+        id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None
+    ) -> "Node":
         """Creates a node with the correct derived class based on the content.
 
         Args:
@@ -108,7 +110,10 @@ class BlockingNode(Node):
         """
         subgraph = get_subgraph(graph, root_node=self, edge_filter=EdgeType.REQUIRES)
         return (
-            any(getattr(node, "is_blocked", lambda _: False)(subgraph) for node in subgraph.successors(self))
+            any(
+                getattr(node, "is_blocked", lambda _: False)(subgraph)
+                for node in subgraph.successors(self)
+            )
             if subgraph
             else False
         )
@@ -156,7 +161,8 @@ class AlternativeContainer(BlockingNode):
         non_alternative_children = [
             n
             for n in graph.successors(self)
-            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value and not isinstance(n, Alternative)
+            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
+            and not isinstance(n, Alternative)
         ]
 
         if any(n.is_blocked(graph) for n in non_alternative_children):
@@ -166,7 +172,8 @@ class AlternativeContainer(BlockingNode):
         direct_alternatives = [
             n
             for n in graph.successors(self)
-            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value and isinstance(n, Alternative)
+            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
+            and isinstance(n, Alternative)
         ]
 
         # If no alternatives, we're not blocked
@@ -175,7 +182,9 @@ class AlternativeContainer(BlockingNode):
 
         # Use helper function to collect viable leaf alternatives
         viable_leaf_alternatives = []
-        self._collect_viable_leaf_alternatives(graph, direct_alternatives, viable_leaf_alternatives)
+        self._collect_viable_leaf_alternatives(
+            graph, direct_alternatives, viable_leaf_alternatives
+        )
 
         # We are blocked if there is not exactly one viable leaf alternative
         return len(viable_leaf_alternatives) != 1
@@ -198,7 +207,8 @@ class AlternativeContainer(BlockingNode):
             alt_children = [
                 n
                 for n in graph.successors(alt)
-                if graph.edges[alt, n].get("type") == EdgeType.REQUIRES.value and isinstance(n, Alternative)
+                if graph.edges[alt, n].get("type") == EdgeType.REQUIRES.value
+                and isinstance(n, Alternative)
             ]
 
             if alt_children:
@@ -224,7 +234,10 @@ class Alternative(BlockingNode):
 
         # First check non-Alternative children (standard BlockingNode behavior)
         non_alt_subgraph = get_subgraph(
-            graph, root_node=self, node_filter=lambda n: not isinstance(n, Alternative), edge_filter=EdgeType.REQUIRES
+            graph,
+            root_node=self,
+            node_filter=lambda n: not isinstance(n, Alternative),
+            edge_filter=EdgeType.REQUIRES,
         )
 
         if any(
@@ -238,7 +251,8 @@ class Alternative(BlockingNode):
         alt_children = [
             n
             for n in graph.successors(self)
-            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value and isinstance(n, Alternative)
+            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
+            and isinstance(n, Alternative)
         ]
 
         # If no Alternative children, we're not blocked by alternatives

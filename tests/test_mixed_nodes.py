@@ -66,7 +66,9 @@ class TestMixedNodes(unittest.TestCase):
         root_task = Task(id="root", name="Root Task", status=TaskType.COMPLETED)
 
         # First branch - unblocked
-        branch1_question = Question(id="b1_q", name="Branch 1 Question", is_resolved=True)
+        branch1_question = Question(
+            id="b1_q", name="Branch 1 Question", is_resolved=True
+        )
         branch1_task = Task(id="b1_t", name="Branch 1 Task", status=TaskType.COMPLETED)
 
         # Second branch - blocked
@@ -120,7 +122,9 @@ class TestMixedNodes(unittest.TestCase):
         problem1 = Problem(id="problem1", name="Problem 1")
 
         # Add nodes to graph
-        graph.add_nodes_from([task1, task2, question1, question2, goal1, goal2, thought1, problem1])
+        graph.add_nodes_from(
+            [task1, task2, question1, question2, goal1, goal2, thought1, problem1]
+        )
 
         # Create a more complex dependency structure
         graph.add_edge(task1, question1, type=EdgeType.REQUIRES.value)
@@ -128,16 +132,22 @@ class TestMixedNodes(unittest.TestCase):
         graph.add_edge(question1, goal1, type=EdgeType.REQUIRES.value)
         graph.add_edge(question2, goal2, type=EdgeType.REQUIRES.value)
         graph.add_edge(goal1, thought1, type=EdgeType.REQUIRES.value)
-        graph.add_edge(goal2, problem1, type=EdgeType.REFERENCES.value)  # Using REFERENCES to not propagate blocking
+        graph.add_edge(
+            goal2, problem1, type=EdgeType.REFERENCES.value
+        )  # Using REFERENCES to not propagate blocking
         graph.add_edge(task2, problem1, type=EdgeType.REQUIRES.value)
 
         # Check blocking states
         self.assertFalse(thought1.is_blocked(graph))
         self.assertFalse(goal1.is_blocked(graph))
         self.assertTrue(goal2.is_blocked(graph))  # blocked because it's not achieved
-        self.assertTrue(question2.is_blocked(graph))  # blocked because it's not resolved and has a blocked child
+        self.assertTrue(
+            question2.is_blocked(graph)
+        )  # blocked because it's not resolved and has a blocked child
         self.assertTrue(problem1.is_blocked(graph))  # problems are always blocked
-        self.assertTrue(task2.is_blocked(graph))  # blocked because it's not completed and has a blocked child
+        self.assertTrue(
+            task2.is_blocked(graph)
+        )  # blocked because it's not completed and has a blocked child
 
         # task1 should be blocked because question2 is blocked
         self.assertTrue(task1.is_blocked(graph))
@@ -153,7 +163,9 @@ class TestMixedNodes(unittest.TestCase):
         level4 = Thought(id="l4", name="Level 4 Thought")
         level5 = Task(id="l5", name="Level 5 Task", status=TaskType.COMPLETED)
         level6 = Question(id="l6", name="Level 6 Question", is_resolved=True)
-        level7 = Goal(id="l7", name="Level 7 Goal", is_achieved=False)  # This one is blocked
+        level7 = Goal(
+            id="l7", name="Level 7 Goal", is_achieved=False
+        )  # This one is blocked
 
         # Add nodes to graph
         graph.add_nodes_from([level1, level2, level3, level4, level5, level6, level7])
@@ -170,7 +182,9 @@ class TestMixedNodes(unittest.TestCase):
         self.assertTrue(level7.is_blocked(graph))  # Blocked because it's not achieved
         self.assertTrue(level6.is_blocked(graph))
         self.assertTrue(level5.is_blocked(graph))
-        self.assertTrue(level4.is_blocked(graph))  # Even Thoughts propagate blocking from their children
+        self.assertTrue(
+            level4.is_blocked(graph)
+        )  # Even Thoughts propagate blocking from their children
         self.assertTrue(level3.is_blocked(graph))
         self.assertTrue(level2.is_blocked(graph))
         self.assertTrue(level1.is_blocked(graph))
@@ -186,7 +200,9 @@ class TestMixedNodes(unittest.TestCase):
         req_question = Question(id="req_q", name="Required Question", is_resolved=False)
 
         ref_task = Task(id="ref_task", name="Referenced Task", status=TaskType.OPEN)
-        ref_question = Question(id="ref_q", name="Referenced Question", is_resolved=False)
+        ref_question = Question(
+            id="ref_q", name="Referenced Question", is_resolved=False
+        )
 
         # Add nodes
         graph.add_nodes_from([root, req_task, req_question, ref_task, ref_question])
@@ -319,7 +335,9 @@ class TestMixedNodes(unittest.TestCase):
 
         # The problem blocks the thought, which blocks the task
         self.assertTrue(problem.is_blocked(graph))
-        self.assertTrue(thought.is_blocked(graph))  # Thought still propagates blocking from its children
+        self.assertTrue(
+            thought.is_blocked(graph)
+        )  # Thought still propagates blocking from its children
         self.assertTrue(task.is_blocked(graph))
 
         # Create a new graph with just the thought
@@ -338,7 +356,9 @@ class TestMixedNodes(unittest.TestCase):
         problem2 = Problem(id="p2", name="Problem 2")
 
         graph.add_nodes_from([problem1, problem2])
-        graph.add_edge(problem1, problem2, type=EdgeType.REFERENCES.value)  # Even with REFERENCES
+        graph.add_edge(
+            problem1, problem2, type=EdgeType.REFERENCES.value
+        )  # Even with REFERENCES
 
         self.assertTrue(problem1.is_blocked(graph))
         self.assertTrue(problem2.is_blocked(graph))

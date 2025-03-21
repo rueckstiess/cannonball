@@ -1,7 +1,12 @@
-from cannonball.nodes import Task, TaskType, Question, Alternative, Goal, Problem, BlockingNode
+from cannonball.nodes import Task, TaskType, Question, Alternative, BlockingNode
 import pytest
 
-from utils import with_markdown, check_blocking_status, check_node_type, check_task_status
+from utils import (
+    with_markdown,
+    check_blocking_status,
+    check_node_type,
+    check_task_status,
+)
 
 
 @with_markdown("""\
@@ -42,7 +47,11 @@ class TestSingleAlternative:
     @pytest.mark.parametrize(
         "node_name,expected_status,reason",
         [
-            ("Single Alternative", False, "it has no children and should not be blocked"),
+            (
+                "Single Alternative",
+                False,
+                "it has no children and should not be blocked",
+            ),
         ],
     )
     def test_blocking_status(self, graph_fixture, node_name, expected_status, reason):
@@ -157,7 +166,11 @@ class TestAlternativeWithSomeBlockedAlternativeChildren:
     @pytest.mark.parametrize(
         "node_name,expected_status,reason",
         [
-            ("Alternative Parent", False, "it has at least one unblocked alternative child"),
+            (
+                "Alternative Parent",
+                False,
+                "it has at least one unblocked alternative child",
+            ),
             ("Child Alternative 1", True, "it has a problem"),
             ("Child Alternative 2", False, "it has no children"),
         ],
@@ -278,7 +291,9 @@ class TestQuestionWithUnblockedAlternatives:
             ("Alternative 2", False, "it has no children"),
         ],
     )
-    def test_blocking_status_before_resolution(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_before_resolution(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         check_blocking_status(graph_fixture, node_name, expected_status, reason)
 
     @pytest.mark.parametrize(
@@ -289,7 +304,9 @@ class TestQuestionWithUnblockedAlternatives:
             ("Alternative 2", False, "it has no children"),
         ],
     )
-    def test_blocking_status_after_resolution(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_after_resolution(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         # Set the question to resolved
         nodes = graph_fixture["nodes_by_name"]
         question = nodes["Question"]
@@ -316,7 +333,9 @@ class TestQuestionWithBlockedAlternatives:
             ("Alternative 2", True, "it has a problem"),
         ],
     )
-    def test_blocking_status_after_resolution(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_after_resolution(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         # Set the question to resolved
         nodes = graph_fixture["nodes_by_name"]
         question = nodes["Question"]
@@ -427,7 +446,9 @@ class TestOneAlternative:
             ("Alternative", False, "has no blocking children"),
         ],
     )
-    def test_blocking_status_before_resolution(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_before_resolution(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         check_blocking_status(graph_fixture, node_name, expected_status, reason)
 
     @pytest.mark.parametrize(
@@ -437,7 +458,9 @@ class TestOneAlternative:
             ("Alternative", False, "has no blocking children"),
         ],
     )
-    def test_blocking_status_after_resolution(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_after_resolution(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         nodes = graph_fixture["nodes_by_name"]
         question = nodes["Question"]
         question.is_resolved = True
@@ -470,7 +493,9 @@ class TestSimpleAlternatives:
             ("Alternative 2", False, "it has no blocking children"),
         ],
     )
-    def test_blocking_status_resolved(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_resolved(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         # Set the question to resolved, we only want to test the alternative blocking mechanism
         nodes = graph_fixture["nodes_by_name"]
         question = nodes["Question"]
@@ -494,7 +519,9 @@ class TestOneViableAlternative:
             ("Problem", True, "problems are always blocked"),
         ],
     )
-    def test_blocking_status_resolved(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_resolved(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         # Set the question to resolved, we only want to test the alternative blocking mechanism
         nodes = graph_fixture["nodes_by_name"]
         question = nodes["Question"]
@@ -704,7 +731,11 @@ class TestToggleExample:
     @pytest.mark.parametrize(
         "node_name,expected_status,reason",
         [
-            ("Do Questions...", False, "Should be unblocked, has Decision referencing Alternative"),
+            (
+                "Do Questions...",
+                False,
+                "Should be unblocked, has Decision referencing Alternative",
+            ),
             # ("Alternative 1", False, "should not be blocked, no blocked children"),
             # ("Alternative 2", False, "should not be blocked, no blocked children"),
             # ("Problem 1", False, "should not be blocked"),
@@ -712,7 +743,9 @@ class TestToggleExample:
         ],
     )
     @pytest.mark.skip(reason="Decision not yet implemented")
-    def test_blocking_status_resolved(self, graph_fixture, node_name, expected_status, reason):
+    def test_blocking_status_resolved(
+        self, graph_fixture, node_name, expected_status, reason
+    ):
         # Set the question to resolved, we only want to test the alternative blocking mechanism
         nodes = graph_fixture["nodes_by_name"]
         question = nodes["Do Questions..."]

@@ -24,7 +24,9 @@ def create_graph_fixture(markdown):
                     return item
             raise KeyError(f"Node with name '{name}' not found.")
 
-    nodes_by_name = NodesByName({extract_str_content(node.name): node for node in nodes})
+    nodes_by_name = NodesByName(
+        {extract_str_content(node.name): node for node in nodes}
+    )
 
     return {"graph": graph, "nodes": nodes, "nodes_by_name": nodes_by_name}
 
@@ -40,18 +42,14 @@ def shorten_text(text, length=20):
 def check_node_type(fixture, node_name, expected_type, reason):
     """Generic function to check node types."""
     node = fixture["nodes_by_name"][node_name]
-    assertion = (
-        f"Node '{shorten_text(node_name)}' is type {type(node)} but should be type {expected_type} because {reason}"
-    )
+    assertion = f"Node '{shorten_text(node_name)}' is type {type(node)} but should be type {expected_type} because {reason}"
     assert isinstance(node, expected_type), assertion
 
 
 def check_task_status(fixture, node_name, expected_status, reason):
     """Generic function to check task status."""
     node = fixture["nodes_by_name"][node_name]
-    assertion = (
-        f"Status for '{shorten_text(node_name)}' is {node.status} but should be {expected_status} because {reason}"
-    )
+    assertion = f"Status for '{shorten_text(node_name)}' is {node.status} but should be {expected_status} because {reason}"
     assert node.status == expected_status, assertion
 
 
