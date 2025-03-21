@@ -72,13 +72,17 @@ class Node:
             return Goal(id, name, marker, ref)
         if marker == "P":
             return Problem(id, name, marker, ref)
+        if marker == "a":
+            return Alternative(id, name, marker, ref)
 
         # Fallback to a generic BlockingNode if no specific type is matched
         return BlockingNode(id, name, marker, ref)
 
     def to_dict(self) -> dict:
         """Convert the relevant node attributes to a dictionary representation."""
-        return {attr: getattr(self, attr) for attr in self._node_attributes}
+        node_attrs = {attr: getattr(self, attr) for attr in self._node_attributes}
+        node_attrs["type"] = self.__class__.__name__
+        return node_attrs
 
     def __hash__(self) -> str:
         """Return a hash of the node ID."""
@@ -104,7 +108,7 @@ class BlockingNode(Node):
         Returns:
             bool: True if this node is blocked
         """
-        subgraph = get_subgraph(graph, root_node=self, edge_type=EdgeType.REQUIRES)
+        subgraph = get_subgraph(graph, root_node=self, edge_filter=EdgeType.REQUIRES)
         return (
             any(
                 getattr(node, "is_blocked", lambda _: False)(subgraph)
@@ -122,6 +126,143 @@ class Thought(BlockingNode):
     pass
 
 
+class AlternativeContainer(BlockingNode):
+    """A container that holds Alternative nodes for decision-making.
+
+    AlternativeContainer implements special blocking logic for decision trees:
+
+    1. Blocking Behavior:
+       - Blocked if any non-Alternative child is blocked (standard behavior)
+       - Blocked if it has Alternative children but doesn't have exactly one viable
+         leaf Alternative in its entire subtree
+
+    2. Leaf Alternative Definition:
+       - A leaf Alternative is an Alternative with no Alternative children
+       - Must be unblocked itself to be considered viable
+
+    3. Decision Tree Semantics:
+       - The container is considered "decided" when exactly one viable path exists
+       - All viable leaf Alternatives in the subtree are counted, regardless of nesting
+       - Only leaf Alternatives reachable through unblocked paths are counted
+
+    This implementation ensures that a decision is fully resolved only when there's
+    exactly one unambiguous path through the entire decision tree, even when alternatives
+    are nested in a hierarchical structure.
+
+    Examples:
+        - A Question with two unblocked Alternatives: BLOCKED (no single choice)
+        - A Question with one unblocked Alternative: NOT BLOCKED (clear choice)
+        - A Question with one Alternative that has two unblocked sub-Alternatives: BLOCKED (no clear leaf choice)
+        - A Question with all Alternatives blocked: BLOCKED (no viable choice)
+    """
+
+    def is_blocked(self, graph):
+        # First check if we're blocked by standard criteria (non-alternative children)
+        non_alternative_children = [
+            n
+            for n in graph.successors(self)
+            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
+            and not isinstance(n, Alternative)
+        ]
+
+        if any(n.is_blocked(graph) for n in non_alternative_children):
+            return True
+
+        # Get direct Alternative children with REQUIRES edges
+        direct_alternatives = [
+            n
+            for n in graph.successors(self)
+            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
+            and isinstance(n, Alternative)
+        ]
+
+        # If no alternatives, we're not blocked
+        if not direct_alternatives:
+            return False
+
+        # Use helper function to collect viable leaf alternatives
+        viable_leaf_alternatives = []
+        self._collect_viable_leaf_alternatives(
+            graph, direct_alternatives, viable_leaf_alternatives
+        )
+
+        # We are blocked if there is not exactly one viable leaf alternative
+        return len(viable_leaf_alternatives) != 1
+
+    def _collect_viable_leaf_alternatives(self, graph, alternatives, result_list):
+        """
+        Recursively collect viable leaf alternatives.
+
+        Args:
+            graph: The graph containing the nodes
+            alternatives: List of alternative nodes to check
+            result_list: List where viable leaf alternatives will be stored
+        """
+        for alt in alternatives:
+            # Skip blocked alternatives - they can't lead to viable paths
+            if alt.is_blocked(graph):
+                continue
+
+            # Get this alternative's direct alternative children
+            alt_children = [
+                n
+                for n in graph.successors(alt)
+                if graph.edges[alt, n].get("type") == EdgeType.REQUIRES.value
+                and isinstance(n, Alternative)
+            ]
+
+            if alt_children:
+                # If it has alternative children, recursively process them
+                self._collect_viable_leaf_alternatives(graph, alt_children, result_list)
+            else:
+                # If it's a leaf alternative (no alternative children) and not blocked, add it
+                result_list.append(alt)
+
+
+class Alternative(BlockingNode):
+    """An alternative node that can be selected as a child of an AlternativeContainer.
+
+    Blocking behaviour of an Alternative is different from a standard BlockingNode.
+        - it blocks on non-Alternative children as usual
+        - additionally, it blocks if **all** of its Alternative children are blocked
+    """
+
+    def is_blocked(self, graph):
+        # if it doesn't have any children, it is not blocked
+        if graph.out_degree(self) == 0:
+            return False
+
+        # First check non-Alternative children (standard BlockingNode behavior)
+        non_alt_subgraph = get_subgraph(
+            graph,
+            root_node=self,
+            node_filter=lambda n: not isinstance(n, Alternative),
+            edge_filter=EdgeType.REQUIRES,
+        )
+
+        if any(
+            node.is_blocked(non_alt_subgraph)
+            for node in non_alt_subgraph.successors(self)
+            if non_alt_subgraph.has_node(node)
+        ):
+            return True
+
+        # Get all direct Alternative children
+        alt_children = [
+            n
+            for n in graph.successors(self)
+            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
+            and isinstance(n, Alternative)
+        ]
+
+        # If no Alternative children, we're not blocked by alternatives
+        if not alt_children:
+            return False
+
+        # For intermediate alternatives: blocked if all Alternative children are blocked
+        return all(child.is_blocked(graph) for child in alt_children)
+
+
 class TaskType(Enum):
     """An enumeration of task types."""
 
@@ -131,7 +272,7 @@ class TaskType(Enum):
     CANCELLED = "cancelled"
 
 
-class Task(BlockingNode):
+class Task(AlternativeContainer):
     """A task node that blocks until completed."""
 
     def __init__(
@@ -190,7 +331,7 @@ class Task(BlockingNode):
         return blocked or not self.is_finished()
 
 
-class Question(BlockingNode):
+class Question(AlternativeContainer):
     """A question node that blocks until it's resolved."""
 
     def __init__(
@@ -229,7 +370,7 @@ class Problem(BlockingNode):
         return True
 
 
-class Goal(BlockingNode):
+class Goal(AlternativeContainer):
     """A goal node that blocks until achieved."""
 
     def __init__(
@@ -257,3 +398,7 @@ class Goal(BlockingNode):
         blocked = super().is_blocked(graph)
         # A goal is blocked if any of its children are blocked or if it is not achieved
         return blocked or not self.is_achieved
+
+
+class Decision(BlockingNode):
+    pass
