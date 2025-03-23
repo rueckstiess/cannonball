@@ -1,5 +1,3 @@
-import pytest
-from anytree import RenderTree
 from cannonball.nodes import Task, NodeState, Node
 
 
@@ -72,8 +70,8 @@ class TestParentChildStateRelationship:
     def test_parent_with_open_children(self):
         """Parent task with all open children should be open."""
         parent = Task("Parent")
-        child1 = Task("Child 1", parent=parent)
-        child2 = Task("Child 2", parent=parent)
+        Task("Child 1", parent=parent)
+        Task("Child 2", parent=parent)
 
         assert parent.state == NodeState.OPEN
 
@@ -81,7 +79,7 @@ class TestParentChildStateRelationship:
         """Parent task with an in-progress child should be in-progress."""
         parent = Task("Parent")
         child1 = Task("Child 1", parent=parent)
-        child2 = Task("Child 2", parent=parent)
+        Task("Child 2", parent=parent)
 
         child1.start()
         assert parent.state == NodeState.IN_PROGRESS
@@ -127,7 +125,7 @@ class TestParentChildStateRelationship:
         """Attempting to complete a parent with unresolved children should fail."""
         parent = Task("Parent")
         child1 = Task("Child 1", parent=parent)
-        child2 = Task("Child 2", parent=parent)
+        Task("Child 2", parent=parent)
 
         child1.complete()
         # child2 is still open
@@ -156,7 +154,9 @@ class TestParentChildStateRelationship:
         child1.complete()
         child2.complete()
         assert parent1.state == NodeState.COMPLETED
-        assert grandparent.state == NodeState.IN_PROGRESS  # parent2's child is still open
+        assert (
+            grandparent.state == NodeState.IN_PROGRESS
+        )  # parent2's child is still open
 
         # Complete last task
         child3.complete()
@@ -167,7 +167,7 @@ class TestParentChildStateRelationship:
         """Test that non-Task children don't affect Task state calculations."""
         parent = Task("Parent")
         task_child = Task("Task Child", parent=parent)
-        note_child = Node("Note", parent=parent)  # Not a Task
+        Node("Note", parent=parent)  # Not a Task
 
         assert parent.state == NodeState.OPEN
 
@@ -272,7 +272,7 @@ class TestEdgeCases:
     def test_remove_child_recomputes_state(self):
         """Removing a child should recompute parent state."""
         parent = Task("Parent")
-        child1 = Task("Child 1", parent=parent, state=NodeState.COMPLETED)
+        Task("Child 1", parent=parent, state=NodeState.COMPLETED)
 
         # Parent should be completed
         assert parent.state == NodeState.COMPLETED
@@ -317,8 +317,8 @@ class TestEdgeCases:
     def test_parent_with_non_task_children_only(self):
         """A parent with only non-Task children should behave like a leaf."""
         parent = Task("Parent")
-        note1 = Node("Note 1", parent=parent)
-        note2 = Node("Note 2", parent=parent)
+        Node("Note 1", parent=parent)
+        Node("Note 2", parent=parent)
 
         # Should be treated as a leaf for task state purposes
         assert parent.complete() is True

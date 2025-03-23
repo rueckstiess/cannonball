@@ -1,9 +1,14 @@
 from anytree import NodeMixin
-from typing import Optional, List, Set
+from typing import Optional, Set
 from enum import Enum
 from marko import Markdown
 from marko.block import ListItem
-from .utils import walk_list_items, extract_node_marker_and_refs, get_raw_text_from_listtem, extract_str_content
+from .utils import (
+    walk_list_items,
+    extract_node_marker_and_refs,
+    get_raw_text_from_listtem,
+    extract_str_content,
+)
 import uuid
 
 
@@ -93,7 +98,9 @@ class Node(NodeMixin):
         return f"{self.__class__.__name__}({self.name})"
 
     @staticmethod
-    def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
+    def from_contents(
+        id: str, content: str, marker: Optional[str] = None, **kwargs
+    ) -> "Node":
         """Create a node from contents."""
 
         MD_MARKER_TO_NODE = {
@@ -193,7 +200,10 @@ class StatefulNode(Node):
             new_state = NodeState.CANCELLED
         elif all(state in NodeState.resolved_states() for state in child_states):
             new_state = NodeState.COMPLETED
-        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
@@ -375,7 +385,9 @@ class Question(Task):
 
     def _recompute_state(self, notify=True):
         # Collect states of child tasks
-        child_tasks = [child for child in self.children if isinstance(child, StatefulNode)]
+        child_tasks = [
+            child for child in self.children if isinstance(child, StatefulNode)
+        ]
 
         # If no child tasks, maintain current state
         if not child_tasks:
@@ -387,11 +399,18 @@ class Question(Task):
         if any(state == NodeState.BLOCKED for state in child_states):
             # if any child is blocked, the question is blocked
             new_state = NodeState.BLOCKED
-        elif any(isinstance(child, (Decision, Answer)) for child in child_tasks if child.state == NodeState.COMPLETED):
+        elif any(
+            isinstance(child, (Decision, Answer))
+            for child in child_tasks
+            if child.state == NodeState.COMPLETED
+        ):
             # if any child is a completed decision or answer, the question is completed
             new_state = NodeState.COMPLETED
         # otherwise the usual in-progress logic applies
-        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
