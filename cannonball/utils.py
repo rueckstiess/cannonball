@@ -24,7 +24,9 @@ def get_raw_text_from_listtem(li: ListItem) -> Optional[str]:
         return ""
 
 
-def walk_list_items(node: Element, parent=None, level=0, apply_fn: Optional[Callable] = None):
+def walk_list_items(
+    node: Element, parent=None, level=0, apply_fn: Optional[Callable] = None
+):
     """Recursively walk the AST and yield all list items with parent and nesting level.
 
     Args:
