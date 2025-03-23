@@ -1,5 +1,6 @@
-from anytree import NodeMixin
+from anytree import NodeMixin, find
 from typing import Optional, Set
+from textwrap import dedent
 from enum import Enum
 from marko import Markdown
 from marko.block import ListItem
@@ -22,7 +23,7 @@ def parse_markdown(content: str) -> "Node":
         The root node of the parsed tree.
     """
     parser = Markdown()
-    ast = parser.parse(content)
+    ast = parser.parse(dedent(content.strip("\n")))
     root = None
 
     def _convert_li_to_node(li: Optional[ListItem]) -> Node:
@@ -98,9 +99,7 @@ class Node(NodeMixin):
         return f"{self.__class__.__name__}({self.name})"
 
     @staticmethod
-    def from_contents(
-        id: str, content: str, marker: Optional[str] = None, **kwargs
-    ) -> "Node":
+    def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
         """Create a node from contents."""
 
         MD_MARKER_TO_NODE = {
@@ -119,6 +118,10 @@ class Node(NodeMixin):
         cls, state = MD_MARKER_TO_NODE.get(marker, (StatefulNode, NodeState.OPEN))
         node = cls(content, id, state=state, **kwargs)
         return node
+
+    def find_by_name(self, prefix: str) -> Optional["Node"]:
+        """Find a child node by its name or prefix of a name."""
+        return find(self, lambda node: node.name.startswith(prefix))
 
 
 class StatefulNode(Node):
@@ -200,10 +203,7 @@ class StatefulNode(Node):
             new_state = NodeState.CANCELLED
         elif all(state in NodeState.resolved_states() for state in child_states):
             new_state = NodeState.COMPLETED
-        elif any(
-            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
-            for state in child_states
-        ):
+        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
@@ -385,9 +385,7 @@ class Question(Task):
 
     def _recompute_state(self, notify=True):
         # Collect states of child tasks
-        child_tasks = [
-            child for child in self.children if isinstance(child, StatefulNode)
-        ]
+        child_tasks = [child for child in self.children if isinstance(child, StatefulNode)]
 
         # If no child tasks, maintain current state
         if not child_tasks:
@@ -399,18 +397,11 @@ class Question(Task):
         if any(state == NodeState.BLOCKED for state in child_states):
             # if any child is blocked, the question is blocked
             new_state = NodeState.BLOCKED
-        elif any(
-            isinstance(child, (Decision, Answer))
-            for child in child_tasks
-            if child.state == NodeState.COMPLETED
-        ):
+        elif any(isinstance(child, (Decision, Answer)) for child in child_tasks if child.state == NodeState.COMPLETED):
             # if any child is a completed decision or answer, the question is completed
             new_state = NodeState.COMPLETED
         # otherwise the usual in-progress logic applies
-        elif any(
-            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
-            for state in child_states
-        ):
+        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
