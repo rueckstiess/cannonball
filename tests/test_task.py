@@ -32,6 +32,16 @@ def task_with_decision():
         """)
 
 
+@pytest.fixture()
+def task_with_decision_and_subtasks():
+    return parse_markdown("""
+        - [ ] Task
+            - [D] Decision
+                - [ ] Option 1
+                - [x] Option 2
+        """)
+
+
 class TestTaskWithDecision:
     def test_task_with_decision(self, task_with_decision):
         task = task_with_decision
@@ -58,6 +68,42 @@ class TestTaskWithDecision:
         # set decision to BLOCKED, should propagate to task
         decision.state = NodeState.BLOCKED
         assert task.state == NodeState.BLOCKED
+
+    def test_task_with_decision_and_subtasks(self, task_with_decision_and_subtasks):
+        task = task_with_decision_and_subtasks
+        decision = task.find_by_name("Decision")
+        option_1 = task.find_by_name("Option 1")
+        option_2 = task.find_by_name("Option 2")
+
+        assert task.state == NodeState.OPEN
+        assert decision.state == NodeState.OPEN
+
+        # make decision for option 1
+        decision.decide(option_1)
+        assert decision.state == NodeState.COMPLETED
+        # the decision was completed, but the subtask is still open
+        assert task.state == NodeState.OPEN
+
+        # make decision for option 2
+        decision.decide(option_2)
+        assert decision.state == NodeState.COMPLETED
+        # the decision was completed, and the subtask is also complete
+        assert task.state == NodeState.COMPLETED
+
+        # recompute decision state should be a no-op
+        decision._recompute_state()
+        # decision should remain the same
+        assert decision.decision == option_2
+        assert decision.state == NodeState.COMPLETED
+
+        # now reopen option_2
+        assert option_2.reopen() is True
+        assert option_2.state == NodeState.OPEN
+        # decision should remain the same
+        assert decision.decision == option_2
+        assert decision.state == NodeState.COMPLETED
+        # but the task should now be open, inherited from option_2
+        assert task.state == NodeState.OPEN
 
 
 @pytest.fixture()

@@ -50,6 +50,22 @@ def decision_with_tasks():
         """)
 
 
+@pytest.fixture()
+def decision_for_another_branch():
+    return parse_markdown("""
+        - Root
+            - Branch 1
+                - Option 1
+                    - [ ] Open Task
+                - Option 2
+                    - [x] Completed Task
+                - Option 3
+                    - [!] Blocked Task
+            - Branch 2
+                - [D] Decision
+    """)
+
+
 class TestDecision:
     def test_decision_init(self, open_decision):
         assert isinstance(open_decision, Decision)
@@ -93,7 +109,9 @@ class TestDecision:
         assert bullet_2.state == NodeState.COMPLETED
         assert bullet_2.parent == decision
 
-    def test_aut_decision_with_task(self, decision_with_task):
+        # make manual decision
+
+    def test_auto_decision_with_task(self, decision_with_task):
         decision = decision_with_task
         assert decision.state == NodeState.OPEN
 

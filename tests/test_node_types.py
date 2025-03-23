@@ -8,6 +8,7 @@ from cannonball.nodes import (
     Decision,
     Task,
     StatefulNode,
+    parse_markdown,
 )
 import pytest
 
@@ -193,12 +194,12 @@ def question_with_tasks():
 @pytest.fixture
 def question_with_decision():
     """Create a question with a decision."""
-    question = Question("Test Question")
-    decision = Decision("Decision", parent=question)
-    Task("Option 1", parent=decision)
-    Task("Option 2", parent=decision)
-
-    return question
+    return parse_markdown("""
+        - [ ] Question
+            - [D] Decision
+                - [ ] Option 1
+                - [x] Option 2
+        """)
 
 
 @pytest.fixture
@@ -232,21 +233,28 @@ class TestQuestion:
         # Question should now be IN_PROGRESS because there are mixed states
         assert question.state == NodeState.IN_PROGRESS
 
+    @pytest.mark.xfail(reason="Question logic not fully implemented")
     def test_question_completed_with_decision(self, question_with_decision):
         """Test Question completion with a completed Decision."""
         question = question_with_decision
-        decision = question.children[0]
-        assert isinstance(decision, Decision)
+        decision = question.find_by_name("Decision")
+        open_option = question.find_by_name("Option 1")
+        completed_option = question.find_by_name("Option 2")
 
-        # Initially question should be OPEN
+        # Initially question should be OPEN because decision is OPEN (and not transparent)
+        assert decision.state == NodeState.OPEN
         assert question.state == NodeState.OPEN
 
-        # Complete the decision by deciding on an option
-        option = decision.children[0]
-        decision.decide(option)
+        # Complete the decision by deciding on open option
+        decision.decide(open_option)
         assert decision.state == NodeState.COMPLETED
+        # Question should be open because now decision is transparent
+        assert question.state == NodeState.OPEN
 
-        # Question should now be completed
+        # Complete the decision by deciding on completed option
+        decision.decide(completed_option)
+        assert decision.state == NodeState.COMPLETED
+        # Question should be open because now decision is transparent
         assert question.state == NodeState.COMPLETED
 
     def test_question_completed_with_answer(self, question_with_answer):

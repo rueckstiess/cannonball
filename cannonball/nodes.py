@@ -92,8 +92,7 @@ class Node(NodeMixin):
         self.name = name
         self.id = id
         self.parent = parent
-        if children:
-            self.children = children
+        self.children = children if children else []
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -145,11 +144,16 @@ class StatefulNode(Node):
     ):
         super().__init__(name, id, parent, children)
         self._state = state
+        self._transparent = False
         if parent:
             parent.add_child(self)
         # Initial state computation if we have children
         if children and any(isinstance(child, StatefulNode) for child in children):
             self._recompute_state(notify=False)
+
+    @property
+    def is_transparent(self) -> bool:
+        return self._transparent
 
     @property
     def state(self) -> NodeState:
@@ -179,11 +183,15 @@ class StatefulNode(Node):
 
     def _get_stateful_children(self) -> list["StatefulNode"]:
         """Get stateful children of this node, ignoring leaf Bullets."""
-        return [
-            child
-            for child in self.children
-            if isinstance(child, StatefulNode) and not (isinstance(child, Bullet) and child.is_leaf)
-        ]
+        children = [c for c in self.children if isinstance(c, StatefulNode)]
+        transparent = [c for c in children if c.is_transparent]
+
+        # replace each transparent child with its children
+        children = [c for c in children if c not in transparent]
+        for node in transparent:
+            children.extend(node._get_stateful_children())
+
+        return children
 
     def _get_leaf_state(self) -> NodeState:
         """By default, the leaf state remains as is."""
@@ -269,6 +277,8 @@ class Bullet(StatefulNode):
     ):
         # Leaf bullets are always COMPLETED
         super().__init__(name, id, parent, children, state=NodeState.COMPLETED)
+        # Bullets are transparent
+        self._transparent = True
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -309,11 +319,16 @@ class Decision(StatefulNode):
     ):
         super().__init__(name, id, parent, children, state)
 
-        self._auto_decidable = auto_decidable
+        self._auto_decidable: bool = auto_decidable
         self._decision = None
 
     def __str__(self):
         return f"[D] {self.name}"
+
+    @property
+    def is_transparent(self) -> bool:
+        """Decisions are transparent when they are COMPLETED and have children."""
+        return self.state == NodeState.COMPLETED and not self.is_leaf
 
     @property
     def state(self) -> NodeState:
@@ -345,20 +360,27 @@ class Decision(StatefulNode):
             self._auto_decidable = value
             self._recompute_state()
 
-    def get_viable_children(self) -> list[Node]:
+    def _get_stateful_children(self):
+        if self.is_transparent:
+            # we only consider the decision sub-tree now
+            return [self._decision]
+        else:
+            return super()._get_stateful_children()
+
+    def _get_viable_children(self) -> list[Node]:
         """Returns all children nodes that are not blocked or cancelled."""
         viable_children = [
-            child
-            for child in self._get_stateful_children()
-            if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
+            child for child in self.children if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
         ]
         return viable_children
 
     def decide(self, decision: Node) -> bool:
         """Set the decision node to a specific child node."""
-        if decision in self.get_viable_children():
+        if decision in self._get_viable_children():
             self._decision = decision
             self.state = NodeState.COMPLETED
+            # notify parent as the new decision subtree may be different
+            self._notify_parent()
             return True
         return False
 
@@ -377,8 +399,8 @@ class Decision(StatefulNode):
         }:
             self._decision = None
 
-        # Collect states of child nodes
-        children = self._get_stateful_children()
+        # Collect states of child nodes (ignoring own transparency logic)
+        children = super()._get_stateful_children()
 
         # If no child nodes, set to OPEN
         if not children:
@@ -389,12 +411,9 @@ class Decision(StatefulNode):
             # If all children are blocked or cancelled, the decision is blocked
             if all(state in {NodeState.BLOCKED, NodeState.CANCELLED} for state in child_states):
                 new_state = NodeState.BLOCKED
-            # If we have an active decision, mark as completed
-            # elif self.decision is not None:
-            #     new_state = NodeState.COMPLETED
             # Auto-decide if applicable
             elif self.auto_decidable:
-                viable_children = self.get_viable_children()
+                viable_children = self._get_viable_children()
                 if len(viable_children) == 1:
                     # If auto_decidable and exactly one child is viable, make decision
                     self._decision = viable_children[0]
@@ -403,17 +422,19 @@ class Decision(StatefulNode):
                     # Multiple or no options available
                     self._decision = None
                     new_state = NodeState.OPEN
+            # If we have an active decision, mark as completed
+            elif self.decision is not None:
+                new_state = NodeState.COMPLETED
             else:
                 # Non-auto-decidable with no decision made yet
                 new_state = NodeState.OPEN
 
-        # Only update if state actually changes
-        if self._state != new_state:
-            self._state = new_state
+        # Always notify parent as the decision sub-tree might have changed
+        self._state = new_state
 
-            # Notify parent if needed
-            if notify:
-                self._notify_parent()
+        # Notify parent if needed
+        if notify:
+            self._notify_parent()
 
 
 class Answer(StatefulNode):
