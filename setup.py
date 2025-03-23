@@ -5,9 +5,8 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        "networkx>=3.1",
+        "anytree>=2.12.1",
         "pymongo>=4.5.0",
-        "regraph>=2.0.1",
         "marko>=2.1.2",
         "pytest>=7.3.1",
         "ruff==0.11.0",
