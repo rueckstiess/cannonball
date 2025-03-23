@@ -1,27 +1,30 @@
 # Cannonball
 
-A productivity system based on directed acyclic graphs (DAGs) represented as hierarchical Markdown with custom node types. This system enables structured work management, knowledge representation, and AI-assisted decision making.
+A productivity system based on dependency trees represented as hierarchical Markdown with custom node types. This system enables structured work management, knowledge representation, and AI-assisted decision making.
 
 ![Teaser](./assets/teaser.png)
 
 ## Features
 
-- **Directed Acyclic Graph (DAG)**: Represents projects as nodes and edges in a directed graph
 - **Markdown Representation**: Stores projects as human-readable markdown files
 - **Multiple Node Types**: Supports various node types for different purposes (tasks, questions, decisions, etc.)
 - **State Propagation**: Automatically tracks dependencies and blocking relationships
-- **NetworkX Support**: Graph operations and analysis using NetworkX
-- **ReactFlow Ready**: Designed for visualization with ReactFlow
 
 ## Node Types
 
-The system supports the following node types:
+The system currently supports the following node types:
 
+- **Bullet `- `**: For neutral comments or grouping mechanism
 - **Tasks `- [ ]`**: Work to be done with states (open, in-progress, done, cancelled)
+- **Decisions `- [D]`**: Active choices to be made
+- **Answers `- [a]`**: An Answer to a question
+
+
+
+Future nodes planned: 
+
 - **Questions `- [?]`**: Uncertainties requiring resolution
-- **Alternatives `- [a]`**: Options being considered
 - **Observations `- [o]`**: Empirical data points
-- **Decisions `- [D]`**: Active choices made
 - **Goals `- [g]`**: Desired outcomes
 - **Artifacts `- [A]`**: Tangible outputs produced
 - **Problems `- [P]`**: Issues requiring resolution
@@ -58,14 +61,14 @@ cannonball/
 ├── cannonball/
 │   ├── __init__.py             # Module initialization
 │   ├── utils.py                # Common utility functions
-|   ├── graph_mgr.py            # Container to manage nxgraphs with utilities
 |   └── nodes.py                # Node definitions and logic
 ├── tests/
 │   ├── __init__.py
 │   └── test_*.py               # Test files, starting with `test_`
-├── examples/
-│   └── example.py              # Example usage
+├── notebooks/
+│   └── *.ipynb                 # Example usage in Jupyter notebooks
 ├── README.md                   # Project documentation
+├── CLAUDE.md                   # Instructions for Claude Code
 ├── requirements.txt            # Dependencies
 └── setup.py                    # Package configuration
 ```
