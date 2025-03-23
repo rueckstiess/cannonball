@@ -1,19 +1,87 @@
-from cannonball.nodes import Task, NodeState, Node
+from cannonball.nodes import (
+    Task,
+    Decision,
+    Bullet,
+    Node,
+    parse_markdown,
+    NodeState,
+)
+import pytest
 
 
-class TestTaskBasics:
-    """Test basic task creation and properties."""
+@pytest.fixture()
+def single_task():
+    return parse_markdown("""
+        - [ ] Task
+        """)
 
-    def test_create_task(self):
-        """Test task creation and default state."""
-        task = Task("Create test suite")
+
+class TestSingleTask:
+    def test_task_init(self, single_task):
+        assert isinstance(single_task, Task)
+        assert single_task.state == NodeState.OPEN
+        assert single_task.name == "Task"
+        assert single_task.parent is None
+
+
+@pytest.fixture()
+def task_with_decision():
+    return parse_markdown("""
+        - [ ] Task
+            - [D] Decision
+        """)
+
+
+class TestTaskWithDecision:
+    def test_task_with_decision(self, task_with_decision):
+        task = task_with_decision
+
+        assert isinstance(task, Task)
         assert task.state == NodeState.OPEN
-        assert task.name == "Create test suite"
+        assert task.name == "Task"
+        assert task.parent is None
 
-    def test_create_task_with_state(self):
-        """Test creating a task with a specific state."""
-        task = Task("In progress task", state=NodeState.IN_PROGRESS)
-        assert task.state == NodeState.IN_PROGRESS
+        # Task cannot be completed because of open decision
+        assert task.complete() is False
+        assert task.state == NodeState.OPEN
+
+        # Check the child is a Decision
+        decision = task.find_by_name("Decision")
+        assert isinstance(decision, Decision)
+        assert decision.state == NodeState.OPEN
+        assert decision.parent == task_with_decision
+
+        # set decision to COMPLETED, should propagate to task
+        decision.state = NodeState.COMPLETED
+        assert task.state == NodeState.COMPLETED
+
+        # set decision to BLOCKED, should propagate to task
+        decision.state = NodeState.BLOCKED
+        assert task.state == NodeState.BLOCKED
+
+
+@pytest.fixture()
+def task_with_bullet():
+    return parse_markdown("""
+        - [ ] Task
+            - Bullet
+        """)
+
+
+class TestTaskWithBullet:
+    def test_task_with_bullet(self, task_with_bullet):
+        task = task_with_bullet
+        bullet = task.find_by_name("Bullet")
+
+        assert isinstance(task, Task)
+        assert task.state == NodeState.OPEN
+        assert task.name == "Task"
+        assert task.parent is None
+
+        # Task can be completed as leaf bullet has COMPLETED state
+        assert bullet.state == NodeState.COMPLETED
+        assert task.complete() is True
+        assert task.state == NodeState.COMPLETED
 
 
 class TestLeafTaskStateChanges:
@@ -154,9 +222,7 @@ class TestParentChildStateRelationship:
         child1.complete()
         child2.complete()
         assert parent1.state == NodeState.COMPLETED
-        assert (
-            grandparent.state == NodeState.IN_PROGRESS
-        )  # parent2's child is still open
+        assert grandparent.state == NodeState.IN_PROGRESS  # parent2's child is still open
 
         # Complete last task
         child3.complete()
@@ -323,3 +389,50 @@ class TestEdgeCases:
         # Should be treated as a leaf for task state purposes
         assert parent.complete() is True
         assert parent.state == NodeState.COMPLETED
+
+
+class TestTaskBasics:
+    """Test basic task creation and properties."""
+
+    def test_create_task(self):
+        """Test task creation and default state."""
+        task = Task("Create test suite")
+        assert task.state == NodeState.OPEN
+        assert task.name == "Create test suite"
+
+    def test_create_task_with_state(self):
+        """Test creating a task with a specific state."""
+        task = Task("In progress task", state=NodeState.IN_PROGRESS)
+        assert task.state == NodeState.IN_PROGRESS
+
+
+class TestTaskSpecificMethods:
+    """Test Task-specific methods that aren't covered in other tests."""
+
+    def test_start_non_leaf_task(self):
+        """Test that attempting to start a non-leaf task returns False."""
+        parent = Task("Parent")
+        Task("Child", parent=parent)
+
+        # Parent is not a leaf, so start should fail
+        assert parent.start() is False
+        assert parent.state == NodeState.OPEN  # State shouldn't change
+
+    def test_start_resolved_task(self):
+        """Test that attempting to start a resolved task returns False."""
+        task = Task("Test Task", state=NodeState.COMPLETED)
+
+        # Task is already completed, so start should fail
+        assert task.start() is False
+        assert task.state == NodeState.COMPLETED  # State shouldn't change
+
+        task.state = NodeState.CANCELLED
+        assert task.start() is False
+        assert task.state == NodeState.CANCELLED  # State shouldn't change
+
+    def test_cancel_already_cancelled(self):
+        """Test that cancelling an already cancelled task returns False."""
+        task = Task("Test Task", state=NodeState.CANCELLED)
+
+        assert task.cancel() is False
+        assert task.state == NodeState.CANCELLED  # State shouldn't change

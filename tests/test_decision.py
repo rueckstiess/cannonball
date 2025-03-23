@@ -57,13 +57,25 @@ class TestDecision:
         assert open_decision.name == "Open Decision"
         assert open_decision.parent is None
 
+    def test_valid_decision_states(self, open_decision):
+        assert open_decision.state == NodeState.OPEN
+        open_decision.state = NodeState.COMPLETED
+        assert open_decision.state == NodeState.COMPLETED
+        open_decision.state = NodeState.BLOCKED
+        assert open_decision.state == NodeState.BLOCKED
+
+        with pytest.raises(ValueError, match="Invalid Decision state 'IN_PROGRESS'"):
+            open_decision.state = NodeState.IN_PROGRESS
+        with pytest.raises(ValueError, match="Invalid Decision state 'CANCELLED'"):
+            open_decision.state = NodeState.CANCELLED
+
     def test_decision_with_single_bullet(self, decision_with_bullet):
         decision = decision_with_bullet
         assert decision.state == NodeState.OPEN
 
         bullet = decision.find_by_name("I need to make a decision here")
         assert isinstance(bullet, Bullet)
-        assert bullet.state == NodeState.OPEN
+        assert bullet.state == NodeState.COMPLETED
         assert bullet.parent == decision
 
     def test_decision_with_2_bullets(self, decision_with_2_bullets):
@@ -73,12 +85,12 @@ class TestDecision:
         bullet_1 = decision.find_by_name("I need to make a decision here")
 
         assert isinstance(bullet_1, Bullet)
-        assert bullet_1.state == NodeState.OPEN
+        assert bullet_1.state == NodeState.COMPLETED
         assert bullet_1.parent == decision
 
         bullet_2 = decision.find_by_name("Another bullet")
         assert isinstance(bullet_2, Bullet)
-        assert bullet_2.state == NodeState.OPEN
+        assert bullet_2.state == NodeState.COMPLETED
         assert bullet_2.parent == decision
 
     def test_aut_decision_with_task(self, decision_with_task):
