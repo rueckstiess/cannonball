@@ -76,8 +76,8 @@ class NodeState(Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
-    def __str__(self):
-        return self.value
+    def __repr__(self):
+        return self.name
 
     @classmethod
     def resolved_states(cls) -> Set["NodeState"]:
@@ -99,7 +99,9 @@ class Node(NodeMixin):
         return f"{self.__class__.__name__}({self.name})"
 
     @staticmethod
-    def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
+    def from_contents(
+        id: str, content: str, marker: Optional[str] = None, **kwargs
+    ) -> "Node":
         """Create a node from contents."""
 
         MD_MARKER_TO_NODE = {
@@ -203,7 +205,10 @@ class StatefulNode(Node):
             new_state = NodeState.CANCELLED
         elif all(state in NodeState.resolved_states() for state in child_states):
             new_state = NodeState.COMPLETED
-        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
@@ -269,11 +274,73 @@ class Bullet(StatefulNode):
 
 
 class Decision(StatefulNode):
+    """Decision nodes represent forkes in the road."""
+
+    markers = {
+        NodeState.OPEN: "D",
+        NodeState.IN_PROGRESS: "D/",
+        NodeState.BLOCKED: "D!",
+        NodeState.COMPLETED: "D✓",
+    }
+
     def __str__(self):
         return f"[D] {self.name}"
 
+    def get_viable_options(self) -> list[Node]:
+        """Returns all children nodes that are not blocked or cancelled."""
+        viable_options = [
+            child
+            for child in self.children
+            if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
+        ]
+        return viable_options
+
+    def _recompute_state(self, notify=True):
+        # Collect states of child tasks
+        child_nodes = [
+            child for child in self.children if isinstance(child, StatefulNode)
+        ]
+
+        # If no child tasks, maintain current state
+        if not child_nodes:
+            new_state = NodeState.OPEN
+
+        child_states = [child.state for child in child_nodes]
+
+        # Apply state derivation rules
+        if all(state == NodeState.BLOCKED for state in child_states):
+            # if all children are blocked, the decision is blocked
+            new_state = NodeState.BLOCKED
+        elif (
+            len([state for state in child_states if state == NodeState.COMPLETED]) == 1
+        ):
+            # if exactly one child is completed, the decision is completed
+            new_state = NodeState.COMPLETED
+        # otherwise the usual in-progress logic applies
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
+            new_state = NodeState.IN_PROGRESS
+        else:
+            new_state = NodeState.OPEN
+
+        # Only update if state actually changes
+        if self._state != new_state:
+            self._state = new_state
+
+            # Notify parent if needed
+            if notify:
+                self._notify_parent()
+
 
 class Answer(StatefulNode):
+    """Answer nodes are semantically like Tasks, but they start in COMPLETED state (if they have no children).
+    Semantically, a Question looks for a completed Answer or Decision to be resolved.
+    They are also different from Tasks in that they cannot be started or cancelled manually, but they can
+    derive state from their children as usual.
+    """
+
     def __init__(
         self,
         name: str,
@@ -385,7 +452,9 @@ class Question(Task):
 
     def _recompute_state(self, notify=True):
         # Collect states of child tasks
-        child_tasks = [child for child in self.children if isinstance(child, StatefulNode)]
+        child_tasks = [
+            child for child in self.children if isinstance(child, StatefulNode)
+        ]
 
         # If no child tasks, maintain current state
         if not child_tasks:
@@ -397,11 +466,18 @@ class Question(Task):
         if any(state == NodeState.BLOCKED for state in child_states):
             # if any child is blocked, the question is blocked
             new_state = NodeState.BLOCKED
-        elif any(isinstance(child, (Decision, Answer)) for child in child_tasks if child.state == NodeState.COMPLETED):
+        elif any(
+            isinstance(child, (Decision, Answer))
+            for child in child_tasks
+            if child.state == NodeState.COMPLETED
+        ):
             # if any child is a completed decision or answer, the question is completed
             new_state = NodeState.COMPLETED
         # otherwise the usual in-progress logic applies
-        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
