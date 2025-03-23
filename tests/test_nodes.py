@@ -1,465 +1,325 @@
-import unittest
-import networkx as nx
-from cannonball.nodes import (
-    BlockingNode,
-    Question,
-    Problem,
-    Goal,
-    Node,
-    TaskType,
-    Task,
-    Thought,
-)
-from cannonball.utils import EdgeType
-
-# Import the classes to test using relative import
-
-
-class TestNodeFactory(unittest.TestCase):
-    """Tests for the Node.from_contents factory method."""
-
-    def test_creates_thought_node(self):
-        """Test that from_contents creates a Thought node when marker is None."""
-        node = Node.from_contents(id="t1", name="Test Thought", marker=None)
-        self.assertIsInstance(node, Thought)
-        self.assertEqual(node.id, "t1")
-        self.assertEqual(node.name, "Test Thought")
-        self.assertEqual(node.marker, None)
-        self.assertEqual(node.ref, None)
-
-    def test_creates_task_nodes(self):
-        """Test that from_contents creates Task nodes with the correct status for each marker."""
-        # Open task
-        open_task = Node.from_contents(id="open1", name="Open Task", marker=" ")
-        self.assertIsInstance(open_task, Task)
-        self.assertEqual(open_task.status, TaskType.OPEN)
-        self.assertEqual(open_task.marker, " ")
-
-        # In-progress task
-        in_progress_task = Node.from_contents(
-            id="prog1", name="In Progress Task", marker="/"
-        )
-        self.assertIsInstance(in_progress_task, Task)
-        self.assertEqual(in_progress_task.status, TaskType.IN_PROGRESS)
-        self.assertEqual(in_progress_task.marker, "/")
-
-        # Completed task
-        completed_task = Node.from_contents(
-            id="comp1", name="Completed Task", marker="x"
-        )
-        self.assertIsInstance(completed_task, Task)
-        self.assertEqual(completed_task.status, TaskType.COMPLETED)
-        self.assertEqual(completed_task.marker, "x")
-
-        # Cancelled task
-        cancelled_task = Node.from_contents(
-            id="canc1", name="Cancelled Task", marker="-"
-        )
-        self.assertIsInstance(cancelled_task, Task)
-        self.assertEqual(cancelled_task.status, TaskType.CANCELLED)
-        self.assertEqual(cancelled_task.marker, "-")
-
-    def test_creates_question_node(self):
-        """Test that from_contents creates a Question node with the correct marker."""
-        node = Node.from_contents(id="q1", name="Test Question", marker="?")
-        self.assertIsInstance(node, Question)
-        self.assertEqual(node.id, "q1")
-        self.assertEqual(node.name, "Test Question")
-        self.assertEqual(node.marker, "?")
-        self.assertEqual(node.ref, None)
-        self.assertFalse(node.is_resolved)
-
-    def test_creates_goal_node(self):
-        """Test that from_contents creates a Goal node with the correct marker."""
-        node = Node.from_contents(id="g1", name="Test Goal", marker="g")
-        self.assertIsInstance(node, Goal)
-        self.assertEqual(node.id, "g1")
-        self.assertEqual(node.name, "Test Goal")
-        self.assertEqual(node.marker, "g")
-        self.assertEqual(node.ref, None)
-        self.assertFalse(node.is_achieved)
-
-    def test_creates_problem_node(self):
-        """Test that from_contents creates a Problem node with the correct marker."""
-        node = Node.from_contents(id="p1", name="Test Problem", marker="P")
-        self.assertIsInstance(node, Problem)
-        self.assertEqual(node.id, "p1")
-        self.assertEqual(node.name, "Test Problem")
-        self.assertEqual(node.marker, "P")
-        self.assertEqual(node.ref, None)
-
-    def test_with_reference(self):
-        """Test that from_contents correctly sets the reference."""
-        node = Node.from_contents(
-            id="t1", name="Node with Ref", marker=None, ref="reference-id"
-        )
-        self.assertEqual(node.ref, "reference-id")
-
-    def test_fallback_for_unknown_marker(self):
-        """Test that from_contents raises ValueError for unknown markers."""
-
-        node = Node.from_contents(id="unknown", name="Unknown Node", marker="Z")
-
-        self.assertIsInstance(node, BlockingNode)
-        self.assertEqual(node.id, "unknown")
-        self.assertEqual(node.name, "Unknown Node")
-        self.assertEqual(node.marker, "Z")
-        self.assertEqual(node.ref, None)
-
-
-class TestBlockingNode(unittest.TestCase):
-    """Tests for the BlockingNode class."""
-
-    def setUp(self):
-        """Set up common test fixtures."""
-        self.graph = nx.DiGraph()
-
-    def create_simple_graph(self):
-        """Create a simple graph with parent and child nodes."""
-        # Create a blocking parent node
-        parent = BlockingNode(id="parent", name="Parent Node")
-
-        # Create a child node that is blocking
-        blocking_child = BlockingNode(id="blocking_child", name="Blocking Child")
-        blocking_child.is_blocked = (
-            lambda g: True
-        )  # Override is_blocked to always return True
-
-        # Create a child node that is not blocking
-        non_blocking_child = BlockingNode(
-            id="non_blocking_child", name="Non-Blocking Child"
-        )
-        non_blocking_child.is_blocked = (
-            lambda g: False
-        )  # Override is_blocked to always return False
-
-        # Add nodes to the graph
-        for node in [parent, blocking_child, non_blocking_child]:
-            self.graph.add_node(node, **node.__dict__)
-
-        # Connect parent to children with REQUIRES edge type
-        self.graph.add_edge(parent, blocking_child, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(parent, non_blocking_child, type=EdgeType.REQUIRES.value)
-
-        return parent, blocking_child, non_blocking_child
-
-    def create_nested_graph(self):
-        """Create a nested graph with multiple levels of nodes."""
-        # Create a root node
-        root = BlockingNode(id="root", name="Root Node")
-
-        # Create level 1 nodes
-        level1_a = BlockingNode(id="level1_a", name="Level 1A")
-        level1_b = BlockingNode(id="level1_b", name="Level 1B")
-
-        # Create level 2 nodes under level1_a
-        level2_a1 = BlockingNode(id="level2_a1", name="Level 2A1")
-        level2_a1.is_blocked = lambda g: True  # This node is always blocked
-        level2_a2 = BlockingNode(id="level2_a2", name="Level 2A2")
-
-        # Create level 2 nodes under level1_b
-        level2_b1 = BlockingNode(id="level2_b1", name="Level 2B1")
-
-        # Create level 3 node under level2_b1
-        level3_b1 = BlockingNode(id="level3_b1", name="Level 3B1")
-        level3_b1.is_blocked = lambda g: True  # This node is always blocked
-
-        # Add all nodes to the graph
-        nodes = [root, level1_a, level1_b, level2_a1, level2_a2, level2_b1, level3_b1]
-        for node in nodes:
-            self.graph.add_node(node, **node.__dict__)
-
-        # Connect nodes with REQUIRES edges
-        self.graph.add_edge(root, level1_a, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(root, level1_b, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(level1_a, level2_a1, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(level1_a, level2_a2, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(level1_b, level2_b1, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(level2_b1, level3_b1, type=EdgeType.REQUIRES.value)
-
-        return {
-            "root": root,
-            "level1_a": level1_a,
-            "level1_b": level1_b,
-            "level2_a1": level2_a1,
-            "level2_a2": level2_a2,
-            "level2_b1": level2_b1,
-            "level3_b1": level3_b1,
-        }
-
-    def create_mixed_edge_types_graph(self):
-        """Create a graph with both REQUIRES and REFERENCES edge types."""
-        # Create nodes
-        root = BlockingNode(id="root", name="Root Node")
-
-        # Nodes connected with REQUIRES edges
-        req_child1 = BlockingNode(id="req_child1", name="Required Child 1")
-        req_child1.is_blocked = lambda g: True  # This node is blocking
-        req_child2 = BlockingNode(id="req_child2", name="Required Child 2")
-
-        # Nodes connected with REFERENCES edges
-        ref_child1 = BlockingNode(id="ref_child1", name="Reference Child 1")
-        ref_child1.is_blocked = (
-            lambda g: True
-        )  # This is blocking but shouldn't affect parent
-
-        ref_child2 = BlockingNode(id="ref_child2", name="Reference Child 2")
-
-        # Add nodes to the graph
-        nodes = [root, req_child1, req_child2, ref_child1, ref_child2]
-        for node in nodes:
-            self.graph.add_node(node, **node.__dict__)
-
-        # Connect with different edge types
-        self.graph.add_edge(root, req_child1, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(root, req_child2, type=EdgeType.REQUIRES.value)
-        self.graph.add_edge(root, ref_child1, type=EdgeType.REFERENCES.value)
-        self.graph.add_edge(root, ref_child2, type=EdgeType.REFERENCES.value)
-
-        return {
-            "root": root,
-            "req_child1": req_child1,
-            "req_child2": req_child2,
-            "ref_child1": ref_child1,
-            "ref_child2": ref_child2,
-        }
-
-    def test_default_is_blocked(self):
-        """Test the default implementation of is_blocked."""
-        node = BlockingNode(id="test", name="Test Node")
-        self.assertFalse(
-            node.is_blocked(self.graph),
-            "BlockingNode.is_blocked should return False by default",
-        )
-
-    def test_is_blocked_simple(self):
-        """Test is_blocked with a simple hierarchy."""
-        parent, blocking_child, non_blocking_child = self.create_simple_graph()
-
-        # Parent should be blocked since one of its children is blocking
-        self.assertTrue(
-            parent.is_blocked(self.graph),
-            "Parent should be blocked when it has a blocking child",
-        )
-
-    def test_is_blocked_no_blocking_children(self):
-        """Test is_blocked when there are no blocking children."""
-        parent, blocking_child, non_blocking_child = self.create_simple_graph()
-
-        # Modify blocking_child to be non-blocking
-        blocking_child.is_blocked = lambda g: False
-
-        # Now parent should not be blocked
-        self.assertFalse(
-            parent.is_blocked(self.graph),
-            "Parent should not be blocked when it has no blocking children",
-        )
-
-    def test_is_blocked_nested(self):
-        """Test is_blocked with a nested graph structure."""
-        nodes = self.create_nested_graph()
-
-        # level1_a should be blocked because level2_a1 is blocking
-        self.assertTrue(
-            nodes["level1_a"].is_blocked(self.graph),
-            "level1_a should be blocked by level2_a1",
-        )
-
-        # level1_b should be blocked because level3_b1 is blocking (transitive)
-        self.assertTrue(
-            nodes["level1_b"].is_blocked(self.graph),
-            "level1_b should be blocked by level3_b1 (transitive)",
-        )
-
-        # Root should be blocked because both child paths have blocking nodes
-        self.assertTrue(
-            nodes["root"].is_blocked(self.graph),
-            "Root should be blocked when all paths have blocking nodes",
-        )
-
-    def test_is_blocked_mixed_blocking_states(self):
-        """Test is_blocked with mixed blocking states in descendants."""
-        nodes = self.create_nested_graph()
-
-        # Make level2_a1 non-blocking
-        nodes["level2_a1"].is_blocked = lambda g: False
-
-        # level1_a should now be unblocked
-        self.assertFalse(
-            nodes["level1_a"].is_blocked(self.graph),
-            "level1_a should not be blocked when all children are non-blocking",
-        )
-
-        # Root should still be blocked because level3_b1 is still blocking
-        self.assertTrue(
-            nodes["root"].is_blocked(self.graph),
-            "Root should still be blocked because level3_b1 is blocking",
-        )
-
-        # Now make level3_b1 non-blocking
-        nodes["level3_b1"].is_blocked = lambda g: False
-
-        # Root should now be unblocked
-        self.assertFalse(
-            nodes["root"].is_blocked(self.graph),
-            "Root should be unblocked when all descendants are non-blocking",
-        )
-
-    def test_is_blocked_with_reference_edges(self):
-        """Test is_blocked with a mix of REQUIRES and REFERENCES edge types."""
-        nodes = self.create_mixed_edge_types_graph()
-
-        # Root should be blocked because req_child1 is blocking
-        self.assertTrue(
-            nodes["root"].is_blocked(self.graph),
-            "Root should be blocked by required children",
-        )
-
-        # Make req_child1 non-blocking
-        nodes["req_child1"].is_blocked = lambda g: False
-
-        # Root should now be unblocked, even though ref_child1 is blocking
-        self.assertFalse(
-            nodes["root"].is_blocked(self.graph),
-            "Root should not be blocked by reference edges, only by required edges",
-        )
-
-    def test_is_blocked_with_no_children(self):
-        """Test is_blocked for a node with no children."""
-        node = BlockingNode(id="lonely", name="Lonely Node")
-        self.graph.add_node(node, **node.__dict__)
-
-        # A node with no children should not be blocked
-        self.assertFalse(
-            node.is_blocked(self.graph), "Node with no children should not be blocked"
-        )
-
-    def test_is_blocked_with_empty_graph(self):
-        """Test is_blocked with an empty graph."""
-        empty_graph = nx.DiGraph()
-        node = BlockingNode(id="test", name="Test Node")
-
-        # A node in an empty graph should not be blocked
-        self.assertFalse(
-            node.is_blocked(empty_graph), "Node in empty graph should not be blocked"
-        )
-
-    def test_cyclic_graph(self):
-        """Test is_blocked with a cyclic graph."""
-        # Create nodes
-        node_a = BlockingNode(id="A", name="Node A")
-        node_b = BlockingNode(id="B", name="Node B")
-        node_b.is_blocked = lambda g: True  # Node B is blocking
-
-        # Add nodes to the graph
-        graph = nx.DiGraph()
-        graph.add_node(node_a, **node_a.__dict__)
-        graph.add_node(node_b, **node_b.__dict__)
-
-        # Create a cycle: A -> B -> A
-        graph.add_edge(node_a, node_b, type=EdgeType.REQUIRES.value)
-        graph.add_edge(node_b, node_a, type=EdgeType.REQUIRES.value)
-
-        # Node A should be blocked because Node B is blocking
-        # This also tests that is_blocked doesn't get stuck in an infinite loop
-        self.assertTrue(
-            node_a.is_blocked(graph),
-            "Node A should be blocked by Node B in a cyclic graph",
-        )
-
-    def test_concrete_blocking_node_implementations(self):
-        """Test concrete implementations of BlockingNode."""
-        # Set up a graph
-        graph = nx.DiGraph()
-
-        # Test QuestionNode
-        question_resolved = Question(
-            id="q1", name="Resolved Question", is_resolved=True
-        )
-        question_unresolved = Question(
-            id="q2", name="Unresolved Question", is_resolved=False
-        )
-
-        graph.add_node(question_resolved, **question_resolved.to_dict())
-        graph.add_node(question_unresolved, **question_unresolved.to_dict())
-
-        self.assertFalse(
-            question_resolved.is_blocked(graph), "Resolved question should not block"
-        )
-        self.assertTrue(
-            question_unresolved.is_blocked(graph), "Unresolved question should block"
-        )
-
-        # Test ProblemNode
-        problem = Problem(id="p1", name="Problem")
-        graph.add_node(problem, **problem.to_dict())
-        self.assertTrue(problem.is_blocked(graph), "Problem should always block")
-
-        # Test GoalNode
-        goal_achieved = Goal(id="g1", name="Achieved Goal", is_achieved=True)
-        goal_unachieved = Goal(id="g2", name="Unachieved Goal", is_achieved=False)
-        graph.add_node(goal_achieved, **goal_achieved.to_dict())
-        graph.add_node(goal_unachieved, **goal_unachieved.to_dict())
-
-        self.assertFalse(
-            goal_achieved.is_blocked(graph), "Achieved goal should not block"
-        )
-        self.assertTrue(
-            goal_unachieved.is_blocked(graph), "Unachieved goal should block"
-        )
-
-    def test_propagation_multiple_levels(self):
-        """Test blocking propagation through multiple levels of nodes."""
-        # Create a deeper graph structure
-        deep_graph = nx.DiGraph()
-
-        # Create a chain of nodes: root -> A -> B -> C -> D
-        # Where D is blocking
-        nodes = {
-            "root": BlockingNode(id="root", name="Root"),
-            "A": BlockingNode(id="A", name="Level A"),
-            "B": BlockingNode(id="B", name="Level B"),
-            "C": BlockingNode(id="C", name="Level C"),
-            "D": BlockingNode(id="D", name="Level D"),
-        }
-
-        # Make node D blocking
-        nodes["D"].is_blocked = lambda g: True
-
-        # Add nodes to graph
-        for node in nodes.values():
-            deep_graph.add_node(node, **node.__dict__)
-
-        # Connect nodes with REQUIRES edges
-        deep_graph.add_edge(nodes["root"], nodes["A"], type=EdgeType.REQUIRES.value)
-        deep_graph.add_edge(nodes["A"], nodes["B"], type=EdgeType.REQUIRES.value)
-        deep_graph.add_edge(nodes["B"], nodes["C"], type=EdgeType.REQUIRES.value)
-        deep_graph.add_edge(nodes["C"], nodes["D"], type=EdgeType.REQUIRES.value)
-
-        # Blocking should propagate all the way up to root
-        self.assertTrue(
-            nodes["root"].is_blocked(deep_graph),
-            "Root should be blocked by node D (4 levels deep)",
-        )
-        self.assertTrue(
-            nodes["A"].is_blocked(deep_graph),
-            "Node A should be blocked by node D (3 levels deep)",
-        )
-        self.assertTrue(
-            nodes["B"].is_blocked(deep_graph),
-            "Node B should be blocked by node D (2 levels deep)",
-        )
-        self.assertTrue(
-            nodes["C"].is_blocked(deep_graph),
-            "Node C should be blocked by node D (1 level deep)",
-        )
-
-        # Node D itself should be blocked (per definition)
-        self.assertTrue(
-            nodes["D"].is_blocked(deep_graph),
-            "Node D should not be blocked as it has no children",
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
+from cannonball.nodes import Task, NodeState, Node
+
+
+class TestTaskBasics:
+    """Test basic task creation and properties."""
+
+    def test_create_task(self):
+        """Test task creation and default state."""
+        task = Task("Create test suite")
+        assert task.state == NodeState.OPEN
+        assert task.name == "Create test suite"
+
+    def test_create_task_with_state(self):
+        """Test creating a task with a specific state."""
+        task = Task("In progress task", state=NodeState.IN_PROGRESS)
+        assert task.state == NodeState.IN_PROGRESS
+
+
+class TestLeafTaskStateChanges:
+    """Test state changes for leaf tasks (no children)."""
+
+    def test_start_leaf_task(self):
+        """Test starting a leaf task."""
+        task = Task("Leaf task")
+        assert task.start() is True
+        assert task.state == NodeState.IN_PROGRESS
+
+    def test_block_leaf_task(self):
+        """Test blocking a leaf task."""
+        task = Task("Leaf task")
+        assert task.block() is True
+        assert task.state == NodeState.BLOCKED
+
+    def test_complete_leaf_task(self):
+        """Test completing a leaf task."""
+        task = Task("Leaf task")
+        assert task.complete() is True
+        assert task.state == NodeState.COMPLETED
+
+    def test_cancel_leaf_task(self):
+        """Test cancelling a leaf task."""
+        task = Task("Leaf task")
+        assert task.cancel() is True
+        assert task.state == NodeState.CANCELLED
+
+    def test_reopen_completed_leaf_task(self):
+        """Test reopening a completed leaf task."""
+        task = Task("Leaf task", state=NodeState.COMPLETED)
+        assert task.reopen() is True
+        assert task.state == NodeState.OPEN
+
+    def test_reopen_cancelled_leaf_task(self):
+        """Test reopening a cancelled leaf task."""
+        task = Task("Leaf task", state=NodeState.CANCELLED)
+        assert task.reopen() is True
+        assert task.state == NodeState.OPEN
+
+    def test_repeated_state_change(self):
+        """Test that changing to the same state returns False."""
+        task = Task("Leaf task", state=NodeState.BLOCKED)
+        assert task.block() is False  # Already blocked
+
+        task.state = NodeState.COMPLETED
+        assert task.complete() is False  # Already completed
+
+
+class TestParentChildStateRelationship:
+    """Test how parent task states are affected by child task states."""
+
+    def test_parent_with_open_children(self):
+        """Parent task with all open children should be open."""
+        parent = Task("Parent")
+        Task("Child 1", parent=parent)
+        Task("Child 2", parent=parent)
+
+        assert parent.state == NodeState.OPEN
+
+    def test_parent_with_in_progress_child(self):
+        """Parent task with an in-progress child should be in-progress."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        Task("Child 2", parent=parent)
+
+        child1.start()
+        assert parent.state == NodeState.IN_PROGRESS
+
+    def test_parent_with_blocked_child(self):
+        """Parent task with a blocked child should be blocked."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+
+        child1.start()
+        assert parent.state == NodeState.IN_PROGRESS
+
+        child2.block()
+        assert parent.state == NodeState.BLOCKED
+
+    def test_parent_with_all_completed_children(self):
+        """Parent task with all completed children should be completed."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+
+        child1.complete()
+        # Parent not completed yet but in progress
+        assert parent.state == NodeState.IN_PROGRESS
+
+        child2.complete()
+        # Now parent should be completed
+        assert parent.state == NodeState.COMPLETED
+
+    def test_parent_with_mixed_resolved_children(self):
+        """Parent task with all children resolved (mix of completed and cancelled) should be completed."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+
+        child1.complete()
+        child2.cancel()
+
+        assert parent.state == NodeState.COMPLETED
+
+    def test_completing_parent_with_unresolved_children(self):
+        """Attempting to complete a parent with unresolved children should fail."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        Task("Child 2", parent=parent)
+
+        child1.complete()
+        # child2 is still open
+
+        assert parent.complete() is False
+        assert parent.state == NodeState.IN_PROGRESS
+
+    def test_nested_state_propagation(self):
+        """Test state propagation through multiple levels."""
+        grandparent = Task("Grandparent")
+        parent1 = Task("Parent 1", parent=grandparent)
+        parent2 = Task("Parent 2", parent=grandparent)
+        child1 = Task("Child 1.1", parent=parent1)
+        child2 = Task("Child 1.2", parent=parent1)
+        child3 = Task("Child 2.1", parent=parent2)
+
+        # Initial state
+        assert grandparent.state == NodeState.OPEN
+
+        # Start one task deep in the tree
+        child1.start()
+        assert parent1.state == NodeState.IN_PROGRESS
+        assert grandparent.state == NodeState.IN_PROGRESS
+
+        # Complete tasks in first branch
+        child1.complete()
+        child2.complete()
+        assert parent1.state == NodeState.COMPLETED
+        assert (
+            grandparent.state == NodeState.IN_PROGRESS
+        )  # parent2's child is still open
+
+        # Complete last task
+        child3.complete()
+        assert parent2.state == NodeState.COMPLETED
+        assert grandparent.state == NodeState.COMPLETED
+
+    def test_mixed_node_types(self):
+        """Test that non-Task children don't affect Task state calculations."""
+        parent = Task("Parent")
+        task_child = Task("Task Child", parent=parent)
+        Node("Note", parent=parent)  # Not a Task
+
+        assert parent.state == NodeState.OPEN
+
+        task_child.complete()
+        assert parent.state == NodeState.COMPLETED  # Only considers Task children
+
+
+class TestTaskCancellation:
+    """Test cancellation propagation behavior."""
+
+    def test_cancel_propagates_to_children(self):
+        """Cancelling a parent should cancel all child tasks."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+        grandchild = Task("Grandchild", parent=child1)
+
+        # Start some tasks
+        child2.start()
+        grandchild.start()
+
+        # Cancel parent
+        parent.cancel()
+
+        # All should be cancelled
+        assert parent.state == NodeState.CANCELLED
+        assert child1.state == NodeState.CANCELLED
+        assert child2.state == NodeState.CANCELLED
+        assert grandchild.state == NodeState.CANCELLED
+
+    def test_cancel_subtree(self):
+        """Cancelling a subtree should not affect siblings or parents."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+        grandchild1 = Task("Grandchild 1", parent=child1)
+        grandchild2 = Task("Grandchild 2", parent=child1)
+
+        # Cancel one subtree
+        child1.cancel()
+
+        # Check cancellation propagation
+        assert child1.state == NodeState.CANCELLED
+        assert grandchild1.state == NodeState.CANCELLED
+        assert grandchild2.state == NodeState.CANCELLED
+
+        # Sibling and parent should be unaffected
+        assert child2.state == NodeState.OPEN
+        assert parent.state == NodeState.OPEN
+
+
+class TestTaskReopening:
+    """Test reopening completed or cancelled tasks."""
+
+    def test_reopen_leaf_task(self):
+        """Test reopening a leaf task."""
+        task = Task("Leaf", state=NodeState.COMPLETED)
+        task.reopen()
+        assert task.state == NodeState.OPEN
+
+    def test_reopen_parent_task(self):
+        """Reopening a parent task should not be possible."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+
+        # Complete all tasks
+        child1.complete()
+        child2.complete()
+        assert parent.state == NodeState.COMPLETED
+
+        # Attempt to reopen parent
+        assert parent.reopen() is False
+
+        # Reopen one child
+        child1.reopen()
+
+        # Parent should derive new state
+        assert parent.state == NodeState.IN_PROGRESS
+        assert child1.state == NodeState.OPEN
+
+        # Start the reopened child
+        child1.start()
+        assert parent.state == NodeState.IN_PROGRESS
+
+
+class TestEdgeCases:
+    """Test various edge cases and complex scenarios."""
+
+    def test_add_child_recomputes_state(self):
+        """Adding a child should recompute parent state."""
+        parent = Task("Parent")
+        assert parent.state == NodeState.OPEN
+
+        # Add a blocked child
+        child = Task("Child", state=NodeState.BLOCKED)
+        parent.add_child(child)
+
+        # Parent should become blocked
+        assert parent.state == NodeState.BLOCKED
+
+    def test_remove_child_recomputes_state(self):
+        """Removing a child should recompute parent state."""
+        parent = Task("Parent")
+        Task("Child 1", parent=parent, state=NodeState.COMPLETED)
+
+        # Parent should be completed
+        assert parent.state == NodeState.COMPLETED
+
+        # Add a blocked child
+        child2 = Task("Child 2", parent=parent, state=NodeState.BLOCKED)
+
+        # Parent should be blocked due to child2
+        assert parent.state == NodeState.BLOCKED
+
+        # Remove blocked child
+        parent.remove_child(child2)
+
+        # Parent should now be completed
+        assert parent.state == NodeState.COMPLETED
+
+    def test_can_complete_checks(self):
+        """Test the can_complete helper method."""
+        parent = Task("Parent")
+        child1 = Task("Child 1", parent=parent)
+        child2 = Task("Child 2", parent=parent)
+
+        # Initially can't complete
+        assert parent.can_complete() is False
+
+        # Complete one child
+        child1.complete()
+        assert parent.can_complete() is False
+
+        # Complete all children
+        child2.complete()
+        assert parent.can_complete() is True
+
+    def test_empty_parent_completion(self):
+        """A parent with no children should be directly completable."""
+        parent = Task("Empty Parent")  # No children
+
+        assert parent.is_leaf is True
+        assert parent.complete() is True
+        assert parent.state == NodeState.COMPLETED
+
+    def test_parent_with_non_task_children_only(self):
+        """A parent with only non-Task children should behave like a leaf."""
+        parent = Task("Parent")
+        Node("Note 1", parent=parent)
+        Node("Note 2", parent=parent)
+
+        # Should be treated as a leaf for task state purposes
+        assert parent.complete() is True
+        assert parent.state == NodeState.COMPLETED

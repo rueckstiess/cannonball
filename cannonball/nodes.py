@@ -1,404 +1,491 @@
-from typing import Optional
-import networkx as nx
-from cannonball.utils import get_subgraph, EdgeType
+from anytree import NodeMixin, find
+from typing import Optional, Set
+from textwrap import dedent
 from enum import Enum
+from marko import Markdown
+from marko.block import ListItem
+from .utils import (
+    walk_list_items,
+    extract_node_marker_and_refs,
+    get_raw_text_from_listtem,
+    extract_str_content,
+)
+import uuid
 
 
-class Node:
-    """A node in the graph."""
+def parse_markdown(content: str) -> "Node":
+    """Parse a markdown string into a Nodes tree.
 
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        marker: Optional[str] = None,
-        ref: Optional[str] = None,
-    ) -> None:
-        """Initialize a new node with an ID, name, and optional marker and reference.
+    Args:
+        markdown (str): The markdown string to parse.
 
-        Args:
-            id: The unique ID of the node.
-            name: The name of the node.
-            marker: Optional marker for the node.
-            ref: Optional reference for the node.
-        """
-        self.id = id
-        self.name = name
-        self.marker = marker
-        self.ref = ref
-
-        self._node_attributes = ("id", "name", "marker", "ref")
-
-    @staticmethod
-    def from_contents(
-        id: str, name: str, marker: Optional[str] = None, ref: Optional[str] = None
-    ) -> "Node":
-        """Creates a node with the correct derived class based on the content.
-
-        Args:
-            id: The unique ID of the node.
-            name: The name of the node.
-            marker: Optional marker that determines the node type:
-                None: Thought node
-                " ": Open task
-                "/": In-progress task
-                "x": Completed task
-                "-": Cancelled task
-                "?": Question node
-                "g": Goal node
-                "P": Problem node
-            ref: Optional reference for the node.
-
-        Returns:
-            An instance of the appropriate node subclass.
-
-        Raises:
-            ValueError: If an unknown marker is provided.
-        """
-
-        if marker is None:
-            return Thought(id, name, marker, ref)
-        if marker == " ":
-            return Task(id, name, ref, TaskType.OPEN)
-        if marker == "/":
-            return Task(id, name, ref, TaskType.IN_PROGRESS)
-        if marker == "x":
-            return Task(id, name, ref, TaskType.COMPLETED)
-        if marker == "-":
-            return Task(id, name, ref, TaskType.CANCELLED)
-        if marker == "?":
-            return Question(id, name, marker, ref)
-        if marker == "g":
-            return Goal(id, name, marker, ref)
-        if marker == "P":
-            return Problem(id, name, marker, ref)
-        if marker == "a":
-            return Alternative(id, name, marker, ref)
-
-        # Fallback to a generic BlockingNode if no specific type is matched
-        return BlockingNode(id, name, marker, ref)
-
-    def to_dict(self) -> dict:
-        """Convert the relevant node attributes to a dictionary representation."""
-        node_attrs = {attr: getattr(self, attr) for attr in self._node_attributes}
-        node_attrs["type"] = self.__class__.__name__
-        return node_attrs
-
-    def __hash__(self) -> str:
-        """Return a hash of the node ID."""
-        return hash(self.id)
-
-    def __repr__(self) -> str:
-        """Return a string representation of the node."""
-        return f"{self.__class__.__name__}({self.name})"
-
-
-class BlockingNode(Node):
-    """A node that can potentially block its parent nodes based on its state."""
-
-    def is_blocked(self, graph: nx.DiGraph) -> bool:
-        """Determine if this node is in blocked state.
-
-        By default, a node is blocked if any of its children are blocked.
-        This can be overridden by subclasses to implement custom blocking logic.
-
-        Args:
-            graph: The current graph
-
-        Returns:
-            bool: True if this node is blocked
-        """
-        subgraph = get_subgraph(graph, root_node=self, edge_filter=EdgeType.REQUIRES)
-        return (
-            any(
-                getattr(node, "is_blocked", lambda _: False)(subgraph)
-                for node in subgraph.successors(self)
-            )
-            if subgraph
-            else False
-        )
-
-
-class Thought(BlockingNode):
-    """A thought node is a node without a marker (single `-` bullet point).
-    It just propagates the blocking state of its children."""
-
-    pass
-
-
-class AlternativeContainer(BlockingNode):
-    """A container that holds Alternative nodes for decision-making.
-
-    AlternativeContainer implements special blocking logic for decision trees:
-
-    1. Blocking Behavior:
-       - Blocked if any non-Alternative child is blocked (standard behavior)
-       - Blocked if it has Alternative children but doesn't have exactly one viable
-         leaf Alternative in its entire subtree
-
-    2. Leaf Alternative Definition:
-       - A leaf Alternative is an Alternative with no Alternative children
-       - Must be unblocked itself to be considered viable
-
-    3. Decision Tree Semantics:
-       - The container is considered "decided" when exactly one viable path exists
-       - All viable leaf Alternatives in the subtree are counted, regardless of nesting
-       - Only leaf Alternatives reachable through unblocked paths are counted
-
-    This implementation ensures that a decision is fully resolved only when there's
-    exactly one unambiguous path through the entire decision tree, even when alternatives
-    are nested in a hierarchical structure.
-
-    Examples:
-        - A Question with two unblocked Alternatives: BLOCKED (no single choice)
-        - A Question with one unblocked Alternative: NOT BLOCKED (clear choice)
-        - A Question with one Alternative that has two unblocked sub-Alternatives: BLOCKED (no clear leaf choice)
-        - A Question with all Alternatives blocked: BLOCKED (no viable choice)
+    Returns:
+        The root node of the parsed tree.
     """
+    parser = Markdown()
+    ast = parser.parse(dedent(content.strip("\n")))
+    root = None
 
-    def is_blocked(self, graph):
-        # First check if we're blocked by standard criteria (non-alternative children)
-        non_alternative_children = [
-            n
-            for n in graph.successors(self)
-            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
-            and not isinstance(n, Alternative)
-        ]
+    def _convert_li_to_node(li: Optional[ListItem]) -> Node:
+        if li is None:
+            return None
+        text = get_raw_text_from_listtem(li)
+        marker, ref, ref_links = extract_node_marker_and_refs(text)
+        content = extract_str_content(text)
 
-        if any(n.is_blocked(graph) for n in non_alternative_children):
-            return True
+        node_id = str(uuid.uuid4())[:8]
+        return Node.from_contents(id=node_id, content=content, marker=marker)
 
-        # Get direct Alternative children with REQUIRES edges
-        direct_alternatives = [
-            n
-            for n in graph.successors(self)
-            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
-            and isinstance(n, Alternative)
-        ]
+    item_to_node = {}
 
-        # If no alternatives, we're not blocked
-        if not direct_alternatives:
-            return False
+    for li, parent_li, level in walk_list_items(ast):
+        if li in item_to_node:
+            node = item_to_node[li]
+        else:
+            node = _convert_li_to_node(li)
+            item_to_node[li] = node
 
-        # Use helper function to collect viable leaf alternatives
-        viable_leaf_alternatives = []
-        self._collect_viable_leaf_alternatives(
-            graph, direct_alternatives, viable_leaf_alternatives
-        )
+        # this must already exist since we're parsing a tree
+        parent = item_to_node[parent_li] if parent_li else None
 
-        # We are blocked if there is not exactly one viable leaf alternative
-        return len(viable_leaf_alternatives) != 1
+        if not parent:
+            root = node
 
-    def _collect_viable_leaf_alternatives(self, graph, alternatives, result_list):
-        """
-        Recursively collect viable leaf alternatives.
+        if parent:
+            node.parent = parent
+            parent.add_child(node)
 
-        Args:
-            graph: The graph containing the nodes
-            alternatives: List of alternative nodes to check
-            result_list: List where viable leaf alternatives will be stored
-        """
-        for alt in alternatives:
-            # Skip blocked alternatives - they can't lead to viable paths
-            if alt.is_blocked(graph):
-                continue
-
-            # Get this alternative's direct alternative children
-            alt_children = [
-                n
-                for n in graph.successors(alt)
-                if graph.edges[alt, n].get("type") == EdgeType.REQUIRES.value
-                and isinstance(n, Alternative)
-            ]
-
-            if alt_children:
-                # If it has alternative children, recursively process them
-                self._collect_viable_leaf_alternatives(graph, alt_children, result_list)
-            else:
-                # If it's a leaf alternative (no alternative children) and not blocked, add it
-                result_list.append(alt)
+    return root
 
 
-class Alternative(BlockingNode):
-    """An alternative node that can be selected as a child of an AlternativeContainer.
+class NodeType(Enum):
+    TASK = "task"
+    QUESTION = "question"
+    GOAL = "goal"
+    ALTERNATIVE = "alternative"
+    DECISION = "decision"
 
-    Blocking behaviour of an Alternative is different from a standard BlockingNode.
-        - it blocks on non-Alternative children as usual
-        - additionally, it blocks if **all** of its Alternative children are blocked
-    """
-
-    def is_blocked(self, graph):
-        # if it doesn't have any children, it is not blocked
-        if graph.out_degree(self) == 0:
-            return False
-
-        # First check non-Alternative children (standard BlockingNode behavior)
-        non_alt_subgraph = get_subgraph(
-            graph,
-            root_node=self,
-            node_filter=lambda n: not isinstance(n, Alternative),
-            edge_filter=EdgeType.REQUIRES,
-        )
-
-        if any(
-            node.is_blocked(non_alt_subgraph)
-            for node in non_alt_subgraph.successors(self)
-            if non_alt_subgraph.has_node(node)
-        ):
-            return True
-
-        # Get all direct Alternative children
-        alt_children = [
-            n
-            for n in graph.successors(self)
-            if graph.edges[self, n].get("type") == EdgeType.REQUIRES.value
-            and isinstance(n, Alternative)
-        ]
-
-        # If no Alternative children, we're not blocked by alternatives
-        if not alt_children:
-            return False
-
-        # For intermediate alternatives: blocked if all Alternative children are blocked
-        return all(child.is_blocked(graph) for child in alt_children)
+    def __str__(self):
+        return self.value
 
 
-class TaskType(Enum):
-    """An enumeration of task types."""
-
+class NodeState(Enum):
     OPEN = "open"
     IN_PROGRESS = "in_progress"
+    BLOCKED = "blocked"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+    def __repr__(self):
+        return self.name
 
-class Task(AlternativeContainer):
-    """A task node that blocks until completed."""
+    @classmethod
+    def resolved_states(cls) -> Set["NodeState"]:
+        """States that indicate a task requires no more work."""
+        return {cls.COMPLETED, cls.CANCELLED}
 
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        ref: Optional[str] = None,
-        status: TaskType = TaskType.OPEN,
-    ) -> None:
-        """Initialize a task node with an ID, name, and optional marker and reference.
 
-        Args:
-            id: The unique ID of the node.
-            name: The name of the node.
-            marker: Optional marker for the node.
-            ref: Optional reference for the node.
-        """
-        self.status_markers = {
-            TaskType.OPEN: " ",
-            TaskType.IN_PROGRESS: "/",
-            TaskType.COMPLETED: "x",
-            TaskType.CANCELLED: "-",
+class Node(NodeMixin):
+    """Base node class for all tree nodes in the productivity system."""
+
+    def __init__(self, name: str, id: Optional[str] = None, parent=None, children=None):
+        self.name = name
+        self.id = id
+        self.parent = parent
+        if children:
+            self.children = children
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
+    @staticmethod
+    def from_contents(
+        id: str, content: str, marker: Optional[str] = None, **kwargs
+    ) -> "Node":
+        """Create a node from contents."""
+
+        MD_MARKER_TO_NODE = {
+            None: (Bullet, None),
+            " ": (Task, NodeState.OPEN),
+            "/": (Task, NodeState.IN_PROGRESS),
+            "!": (Task, NodeState.BLOCKED),
+            "x": (Task, NodeState.COMPLETED),
+            "-": (Task, NodeState.CANCELLED),
+            "?": (Question, NodeState.OPEN),
+            "D": (Decision, NodeState.OPEN),
+            "A": (Answer, NodeState.COMPLETED),
         }
 
-        # Derive marker from status
-        marker = self.status_markers[status]
-        super().__init__(id, name, marker, ref)
-        self._status = status
-        self._node_attributes = ("id", "name", "marker", "ref", "_status")
+        # Get class and state, with fallback to default open StatefulNode if not found
+        cls, state = MD_MARKER_TO_NODE.get(marker, (StatefulNode, NodeState.OPEN))
+        node = cls(content, id, state=state, **kwargs)
+        return node
+
+    def find_by_name(self, prefix: str) -> Optional["Node"]:
+        """Find a child node by its name or prefix of a name."""
+        return find(self, lambda node: node.name.startswith(prefix))
+
+
+class StatefulNode(Node):
+    """Stateful node with state propagation and resolution logic."""
+
+    markers = {
+        NodeState.OPEN: " ",
+        NodeState.IN_PROGRESS: "/",
+        NodeState.BLOCKED: "!",
+        NodeState.COMPLETED: "✓",
+        NodeState.CANCELLED: "-",
+    }
+
+    def __init__(
+        self,
+        name: str,
+        id: Optional[str] = None,
+        parent: Optional[Node] = None,
+        children: Optional[list[Node]] = None,
+        state: NodeState = NodeState.OPEN,
+    ):
+        super().__init__(name, id, parent, children)
+        self._state = state
+        if parent:
+            parent.add_child(self)
+        # Initial state computation if we have children
+        if children and any(isinstance(child, Task) for child in children):
+            self._recompute_state(notify=False)
 
     @property
-    def status(self):
-        """Returns the status."""
-        return self._status
+    def state(self) -> NodeState:
+        return self._state
 
-    @status.setter
-    def status(self, status):
-        """Sets the status and appropriate marker."""
-        self._status = status
-        self.marker = self.status_markers[status]
+    @state.setter
+    def state(self, new_state: NodeState):
+        """State setter with validation and propagation."""
+        if self._state != new_state:
+            self._state = new_state
+            self._notify_parent()
 
-    def is_finished(self) -> bool:
-        """Check if the task is completed or cancelled.
+            # Handle downward propagation for CANCELLED state
+            if new_state == NodeState.CANCELLED:
+                self._propagate_cancellation()
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name}, state={self.state})"
+
+    def __str__(self):
+        return f"[{self.markers[self.state]}] {self.name}"
+
+    def _notify_parent(self):
+        """Notify parent of state change to trigger state recomputation."""
+        if self.parent:
+            self.parent._recompute_state()
+
+    def _recompute_state(self, notify: bool = True):
+        """Derive task state from children's states.
+
+        Args:
+            notify: Whether to notify parent after recomputation
+        """
+        # Skip for leaf nodes - their state is set explicitly
+        if self.is_leaf:
+            return
+
+        # Collect states of child tasks
+        child_tasks = [child for child in self.children if isinstance(child, Task)]
+
+        # If no child tasks, maintain current state
+        if not child_tasks:
+            return
+
+        child_states = [child.state for child in child_tasks]
+
+        # Apply state derivation rules
+        if any(state == NodeState.BLOCKED for state in child_states):
+            new_state = NodeState.BLOCKED
+        elif all(state == NodeState.CANCELLED for state in child_states):
+            new_state = NodeState.CANCELLED
+        elif all(state in NodeState.resolved_states() for state in child_states):
+            new_state = NodeState.COMPLETED
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
+            new_state = NodeState.IN_PROGRESS
+        else:
+            new_state = NodeState.OPEN
+
+        # Only update if state actually changes
+        if self._state != new_state:
+            self._state = new_state
+
+            # Notify parent if needed
+            if notify:
+                self._notify_parent()
+
+    def _propagate_cancellation(self):
+        """Propagate CANCELLED state to all children."""
+        for child in self.children:
+            if isinstance(child, Task) and child.state != NodeState.CANCELLED:
+                child.state = NodeState.CANCELLED
+
+    def is_resolved(self) -> bool:
+        """Check if task is in a resolved state (COMPLETED or CANCELLED)."""
+        return self.state in NodeState.resolved_states()
+
+    def can_complete(self) -> bool:
+        """Check if task can be marked as complete."""
+        if self.is_leaf:
+            return self.state not in NodeState.resolved_states()
+
+        child_tasks = [child for child in self.children if isinstance(child, Task)]
+        return all(child.state in NodeState.resolved_states() for child in child_tasks)
+
+    def add_child(self, node: Node) -> None:
+        """Add a child task and recompute state."""
+        node.parent = self
+        self._recompute_state()
+
+    def remove_child(self, node: Node) -> None:
+        """Remove a child task and recompute state."""
+        if node in self.children:
+            node.parent = None
+            self._recompute_state()
+
+
+class Bullet(StatefulNode):
+    """Bullet nodes behave like StatefulNodes internally but don't show their state in the UI and their state
+    cannot be manually changed. They are for grouping tasks together and regular thoughts. They still
+    propagate their chilren states to the parent."""
+
+    def __init__(
+        self,
+        name: str,
+        id: Optional[str] = None,
+        parent: Optional[Node] = None,
+        children: Optional[list[Node]] = None,
+        **kwargs,  # for API compatibility
+    ):
+        super().__init__(name, id, parent, children)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
+    def __str__(self):
+        return f"{self.name}"
+
+
+class Decision(StatefulNode):
+    """Decision nodes represent forkes in the road."""
+
+    markers = {
+        NodeState.OPEN: "D",
+        NodeState.IN_PROGRESS: "D/",
+        NodeState.BLOCKED: "D!",
+        NodeState.COMPLETED: "D✓",
+    }
+
+    def __str__(self):
+        return f"[D] {self.name}"
+
+    def get_viable_options(self) -> list[Node]:
+        """Returns all children nodes that are not blocked or cancelled."""
+        viable_options = [
+            child
+            for child in self.children
+            if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
+        ]
+        return viable_options
+
+    def _recompute_state(self, notify=True):
+        # Collect states of child tasks
+        child_nodes = [
+            child for child in self.children if isinstance(child, StatefulNode)
+        ]
+
+        # If no child tasks, maintain current state
+        if not child_nodes:
+            new_state = NodeState.OPEN
+
+        child_states = [child.state for child in child_nodes]
+
+        # Apply state derivation rules
+        if all(state == NodeState.BLOCKED for state in child_states):
+            # if all children are blocked, the decision is blocked
+            new_state = NodeState.BLOCKED
+        elif (
+            len([state for state in child_states if state == NodeState.COMPLETED]) == 1
+        ):
+            # if exactly one child is completed, the decision is completed
+            new_state = NodeState.COMPLETED
+        # otherwise the usual in-progress logic applies
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
+            new_state = NodeState.IN_PROGRESS
+        else:
+            new_state = NodeState.OPEN
+
+        # Only update if state actually changes
+        if self._state != new_state:
+            self._state = new_state
+
+            # Notify parent if needed
+            if notify:
+                self._notify_parent()
+
+
+class Answer(StatefulNode):
+    """Answer nodes are semantically like Tasks, but they start in COMPLETED state (if they have no children).
+    Semantically, a Question looks for a completed Answer or Decision to be resolved.
+    They are also different from Tasks in that they cannot be started or cancelled manually, but they can
+    derive state from their children as usual.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        id: Optional[str] = None,
+        parent: Optional[Node] = None,
+        children: Optional[list[Node]] = None,
+        **kwargs,  # for API compatibility
+    ):
+        # Set the state to COMPLETED by default
+        super().__init__(name, id, parent, children, state=NodeState.COMPLETED)
+
+    def __str__(self):
+        return f"[A] {self.name}"
+
+
+class Task(StatefulNode):
+    def start(self) -> bool:
+        """Start work on this task, setting it to IN_PROGRESS state.
 
         Returns:
-            bool: True if the task is completed or cancelled
+            bool: True if the state was changed, False otherwise
         """
-        return self._status in (TaskType.COMPLETED, TaskType.CANCELLED)
+        if self.is_leaf and self.state not in NodeState.resolved_states():
+            self.state = NodeState.IN_PROGRESS
+            return True
+        return False
 
-    def is_blocked(self, graph: nx.DiGraph) -> bool:
-        """A task blocks if it's not completed."""
+    def block(self) -> bool:
+        """Mark task as BLOCKED.
 
-        blocked = super().is_blocked(graph)
-
-        # A task is blocked if any of its children are blocked or if it is not finished (completed or cancellled)
-        return blocked or not self.is_finished()
-
-
-class Question(AlternativeContainer):
-    """A question node that blocks until it's resolved."""
-
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        marker: Optional[str] = None,
-        ref: Optional[str] = None,
-        is_resolved: bool = False,
-    ) -> None:
-        """Initialize a question node with an ID, name, and optional marker and reference.
-
-        Args:
-            id: The unique ID of the node.
-            name: The name of the node.
-            marker: Optional marker for the node.
-            ref: Optional reference for the node.
+        Returns:
+            bool: True if the state was changed, False otherwise
         """
-        super().__init__(id, name, marker, ref)
-        self.is_resolved = is_resolved
-        self._node_attributes = ("id", "name", "marker", "ref", "is_resolved")
+        if self.state != NodeState.BLOCKED:
+            self.state = NodeState.BLOCKED
+            return True
+        return False
 
-    def is_blocked(self, graph: nx.DiGraph) -> bool:
-        """A question blocks if it's not resolved."""
-        blocked = super().is_blocked(graph)
+    def complete(self) -> bool:
+        """Mark task as COMPLETED if possible.
 
-        # A question is blocked if any of its children are blocked or if it is not resolved
-        return blocked or not self.is_resolved
+        For tasks with children, all children must be in a resolved state
+        (COMPLETED or CANCELLED) for the task to be completable.
 
-
-class Problem(BlockingNode):
-    """A problem node that always blocks."""
-
-    def is_blocked(self, graph: nx.DiGraph) -> bool:
-        """A problem always blocks."""
-        return True
-
-
-class Goal(AlternativeContainer):
-    """A goal node that blocks until achieved."""
-
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        marker: Optional[str] = None,
-        ref: Optional[str] = None,
-        is_achieved: bool = False,
-    ) -> None:
-        """Initialize a goal node with an ID, name, and optional marker and reference.
-
-        Args:
-            id: The unique ID of the node.
-            name: The name of the node.
-            marker: Optional marker for the node.
-            ref: Optional reference for the node.
+        Returns:
+            bool: True if task was completed, False if not completable
         """
-        super().__init__(id, name, marker, ref)
-        self.is_achieved = is_achieved
-        self._node_attributes = ("id", "name", "marker", "ref", "is_achieved")
+        # Prevent completing if already completed
+        if self.state == NodeState.COMPLETED:
+            return False
 
-    def is_blocked(self, graph: nx.DiGraph) -> bool:
-        """A goal blocks if it's not achieved."""
-        blocked = super().is_blocked(graph)
-        # A goal is blocked if any of its children are blocked or if it is not achieved
-        return blocked or not self.is_achieved
+        # Tasks with no children can be completed directly
+        if self.is_leaf:
+            self.state = NodeState.COMPLETED
+            return True
+
+        # Tasks with children need all children to be resolved
+        child_tasks = [child for child in self.children if isinstance(child, Task)]
+        if all(child.state in NodeState.resolved_states() for child in child_tasks):
+            self.state = NodeState.COMPLETED
+            return True
+
+        return False
+
+    def cancel(self) -> bool:
+        """Cancel this task and all its subtasks.
+
+        Returns:
+            bool: True if cancellation was successful
+        """
+        if self.state != NodeState.CANCELLED:
+            self.state = NodeState.CANCELLED
+            return True
+        return False
+
+    def reopen(self) -> bool:
+        """Reopen a completed or cancelled leaf task.
+
+        Returns:
+            bool: True if reopening was successful
+        """
+        if self.is_leaf and self.state in NodeState.resolved_states():
+            # Leaf tasks go to OPEN state
+            self.state = NodeState.OPEN
+            self._notify_parent()
+            return True
+
+        return False
 
 
-class Decision(BlockingNode):
-    pass
+class Question(Task):
+    """Question node with state propagation and resolution logic. They are similar to tasks but they cannot be
+    explicitly actioned (start, complete, reopen). Instead, they determine their status based on their children.
+
+    If a question has a Decision or Answer node as a child, it will be marked as COMPLETED.
+    If a question contains a blocked node, it will be marked as BLOCKED.
+    If a question contains no children, it will be marked as OPEN.
+    Otherwise it will be marked as IN_PROGRESS.
+
+    """
+
+    markers = {
+        NodeState.OPEN: "?",
+        NodeState.IN_PROGRESS: "?/",
+        NodeState.BLOCKED: "?!",
+        NodeState.COMPLETED: "?✓",
+        NodeState.CANCELLED: "?-",
+    }
+
+    def _recompute_state(self, notify=True):
+        # Collect states of child tasks
+        child_tasks = [
+            child for child in self.children if isinstance(child, StatefulNode)
+        ]
+
+        # If no child tasks, maintain current state
+        if not child_tasks:
+            new_state = NodeState.OPEN
+
+        child_states = [child.state for child in child_tasks]
+
+        # Apply state derivation rules
+        if any(state == NodeState.BLOCKED for state in child_states):
+            # if any child is blocked, the question is blocked
+            new_state = NodeState.BLOCKED
+        elif any(
+            isinstance(child, (Decision, Answer))
+            for child in child_tasks
+            if child.state == NodeState.COMPLETED
+        ):
+            # if any child is a completed decision or answer, the question is completed
+            new_state = NodeState.COMPLETED
+        # otherwise the usual in-progress logic applies
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
+            new_state = NodeState.IN_PROGRESS
+        else:
+            new_state = NodeState.OPEN
+
+        # Only update if state actually changes
+        if self._state != new_state:
+            self._state = new_state
+
+            # Notify parent if needed
+            if notify:
+                self._notify_parent()
