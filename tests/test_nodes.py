@@ -1,6 +1,6 @@
 import pytest
 from anytree import RenderTree
-from cannonball.nodes import Task, TaskState, Node
+from cannonball.nodes import Task, NodeState, Node
 
 
 class TestTaskBasics:
@@ -9,13 +9,13 @@ class TestTaskBasics:
     def test_create_task(self):
         """Test task creation and default state."""
         task = Task("Create test suite")
-        assert task.state == TaskState.OPEN
-        assert task.content == "Create test suite"
+        assert task.state == NodeState.OPEN
+        assert task.name == "Create test suite"
 
     def test_create_task_with_state(self):
         """Test creating a task with a specific state."""
-        task = Task("In progress task", state=TaskState.IN_PROGRESS)
-        assert task.state == TaskState.IN_PROGRESS
+        task = Task("In progress task", state=NodeState.IN_PROGRESS)
+        assert task.state == NodeState.IN_PROGRESS
 
 
 class TestLeafTaskStateChanges:
@@ -25,44 +25,44 @@ class TestLeafTaskStateChanges:
         """Test starting a leaf task."""
         task = Task("Leaf task")
         assert task.start() is True
-        assert task.state == TaskState.IN_PROGRESS
+        assert task.state == NodeState.IN_PROGRESS
 
     def test_block_leaf_task(self):
         """Test blocking a leaf task."""
         task = Task("Leaf task")
         assert task.block() is True
-        assert task.state == TaskState.BLOCKED
+        assert task.state == NodeState.BLOCKED
 
     def test_complete_leaf_task(self):
         """Test completing a leaf task."""
         task = Task("Leaf task")
         assert task.complete() is True
-        assert task.state == TaskState.COMPLETED
+        assert task.state == NodeState.COMPLETED
 
     def test_cancel_leaf_task(self):
         """Test cancelling a leaf task."""
         task = Task("Leaf task")
         assert task.cancel() is True
-        assert task.state == TaskState.CANCELLED
+        assert task.state == NodeState.CANCELLED
 
     def test_reopen_completed_leaf_task(self):
         """Test reopening a completed leaf task."""
-        task = Task("Leaf task", state=TaskState.COMPLETED)
+        task = Task("Leaf task", state=NodeState.COMPLETED)
         assert task.reopen() is True
-        assert task.state == TaskState.OPEN
+        assert task.state == NodeState.OPEN
 
     def test_reopen_cancelled_leaf_task(self):
         """Test reopening a cancelled leaf task."""
-        task = Task("Leaf task", state=TaskState.CANCELLED)
+        task = Task("Leaf task", state=NodeState.CANCELLED)
         assert task.reopen() is True
-        assert task.state == TaskState.OPEN
+        assert task.state == NodeState.OPEN
 
     def test_repeated_state_change(self):
         """Test that changing to the same state returns False."""
-        task = Task("Leaf task", state=TaskState.BLOCKED)
+        task = Task("Leaf task", state=NodeState.BLOCKED)
         assert task.block() is False  # Already blocked
 
-        task.state = TaskState.COMPLETED
+        task.state = NodeState.COMPLETED
         assert task.complete() is False  # Already completed
 
 
@@ -75,7 +75,7 @@ class TestParentChildStateRelationship:
         child1 = Task("Child 1", parent=parent)
         child2 = Task("Child 2", parent=parent)
 
-        assert parent.state == TaskState.OPEN
+        assert parent.state == NodeState.OPEN
 
     def test_parent_with_in_progress_child(self):
         """Parent task with an in-progress child should be in-progress."""
@@ -84,7 +84,7 @@ class TestParentChildStateRelationship:
         child2 = Task("Child 2", parent=parent)
 
         child1.start()
-        assert parent.state == TaskState.IN_PROGRESS
+        assert parent.state == NodeState.IN_PROGRESS
 
     def test_parent_with_blocked_child(self):
         """Parent task with a blocked child should be blocked."""
@@ -93,10 +93,10 @@ class TestParentChildStateRelationship:
         child2 = Task("Child 2", parent=parent)
 
         child1.start()
-        assert parent.state == TaskState.IN_PROGRESS
+        assert parent.state == NodeState.IN_PROGRESS
 
         child2.block()
-        assert parent.state == TaskState.BLOCKED
+        assert parent.state == NodeState.BLOCKED
 
     def test_parent_with_all_completed_children(self):
         """Parent task with all completed children should be completed."""
@@ -106,11 +106,11 @@ class TestParentChildStateRelationship:
 
         child1.complete()
         # Parent not completed yet but in progress
-        assert parent.state == TaskState.IN_PROGRESS
+        assert parent.state == NodeState.IN_PROGRESS
 
         child2.complete()
         # Now parent should be completed
-        assert parent.state == TaskState.COMPLETED
+        assert parent.state == NodeState.COMPLETED
 
     def test_parent_with_mixed_resolved_children(self):
         """Parent task with all children resolved (mix of completed and cancelled) should be completed."""
@@ -121,7 +121,7 @@ class TestParentChildStateRelationship:
         child1.complete()
         child2.cancel()
 
-        assert parent.state == TaskState.COMPLETED
+        assert parent.state == NodeState.COMPLETED
 
     def test_completing_parent_with_unresolved_children(self):
         """Attempting to complete a parent with unresolved children should fail."""
@@ -133,7 +133,7 @@ class TestParentChildStateRelationship:
         # child2 is still open
 
         assert parent.complete() is False
-        assert parent.state == TaskState.IN_PROGRESS
+        assert parent.state == NodeState.IN_PROGRESS
 
     def test_nested_state_propagation(self):
         """Test state propagation through multiple levels."""
@@ -145,23 +145,23 @@ class TestParentChildStateRelationship:
         child3 = Task("Child 2.1", parent=parent2)
 
         # Initial state
-        assert grandparent.state == TaskState.OPEN
+        assert grandparent.state == NodeState.OPEN
 
         # Start one task deep in the tree
         child1.start()
-        assert parent1.state == TaskState.IN_PROGRESS
-        assert grandparent.state == TaskState.IN_PROGRESS
+        assert parent1.state == NodeState.IN_PROGRESS
+        assert grandparent.state == NodeState.IN_PROGRESS
 
         # Complete tasks in first branch
         child1.complete()
         child2.complete()
-        assert parent1.state == TaskState.COMPLETED
-        assert grandparent.state == TaskState.IN_PROGRESS  # parent2's child is still open
+        assert parent1.state == NodeState.COMPLETED
+        assert grandparent.state == NodeState.IN_PROGRESS  # parent2's child is still open
 
         # Complete last task
         child3.complete()
-        assert parent2.state == TaskState.COMPLETED
-        assert grandparent.state == TaskState.COMPLETED
+        assert parent2.state == NodeState.COMPLETED
+        assert grandparent.state == NodeState.COMPLETED
 
     def test_mixed_node_types(self):
         """Test that non-Task children don't affect Task state calculations."""
@@ -169,10 +169,10 @@ class TestParentChildStateRelationship:
         task_child = Task("Task Child", parent=parent)
         note_child = Node("Note", parent=parent)  # Not a Task
 
-        assert parent.state == TaskState.OPEN
+        assert parent.state == NodeState.OPEN
 
         task_child.complete()
-        assert parent.state == TaskState.COMPLETED  # Only considers Task children
+        assert parent.state == NodeState.COMPLETED  # Only considers Task children
 
 
 class TestTaskCancellation:
@@ -193,10 +193,10 @@ class TestTaskCancellation:
         parent.cancel()
 
         # All should be cancelled
-        assert parent.state == TaskState.CANCELLED
-        assert child1.state == TaskState.CANCELLED
-        assert child2.state == TaskState.CANCELLED
-        assert grandchild.state == TaskState.CANCELLED
+        assert parent.state == NodeState.CANCELLED
+        assert child1.state == NodeState.CANCELLED
+        assert child2.state == NodeState.CANCELLED
+        assert grandchild.state == NodeState.CANCELLED
 
     def test_cancel_subtree(self):
         """Cancelling a subtree should not affect siblings or parents."""
@@ -210,13 +210,13 @@ class TestTaskCancellation:
         child1.cancel()
 
         # Check cancellation propagation
-        assert child1.state == TaskState.CANCELLED
-        assert grandchild1.state == TaskState.CANCELLED
-        assert grandchild2.state == TaskState.CANCELLED
+        assert child1.state == NodeState.CANCELLED
+        assert grandchild1.state == NodeState.CANCELLED
+        assert grandchild2.state == NodeState.CANCELLED
 
         # Sibling and parent should be unaffected
-        assert child2.state == TaskState.OPEN
-        assert parent.state == TaskState.OPEN
+        assert child2.state == NodeState.OPEN
+        assert parent.state == NodeState.OPEN
 
 
 class TestTaskReopening:
@@ -224,9 +224,9 @@ class TestTaskReopening:
 
     def test_reopen_leaf_task(self):
         """Test reopening a leaf task."""
-        task = Task("Leaf", state=TaskState.COMPLETED)
+        task = Task("Leaf", state=NodeState.COMPLETED)
         task.reopen()
-        assert task.state == TaskState.OPEN
+        assert task.state == NodeState.OPEN
 
     def test_reopen_parent_task(self):
         """Reopening a parent task should not be possible."""
@@ -237,7 +237,7 @@ class TestTaskReopening:
         # Complete all tasks
         child1.complete()
         child2.complete()
-        assert parent.state == TaskState.COMPLETED
+        assert parent.state == NodeState.COMPLETED
 
         # Attempt to reopen parent
         assert parent.reopen() is False
@@ -246,12 +246,12 @@ class TestTaskReopening:
         child1.reopen()
 
         # Parent should derive new state
-        assert parent.state == TaskState.IN_PROGRESS
-        assert child1.state == TaskState.OPEN
+        assert parent.state == NodeState.IN_PROGRESS
+        assert child1.state == NodeState.OPEN
 
         # Start the reopened child
         child1.start()
-        assert parent.state == TaskState.IN_PROGRESS
+        assert parent.state == NodeState.IN_PROGRESS
 
 
 class TestEdgeCases:
@@ -260,34 +260,34 @@ class TestEdgeCases:
     def test_add_child_recomputes_state(self):
         """Adding a child should recompute parent state."""
         parent = Task("Parent")
-        assert parent.state == TaskState.OPEN
+        assert parent.state == NodeState.OPEN
 
         # Add a blocked child
-        child = Task("Child", state=TaskState.BLOCKED)
+        child = Task("Child", state=NodeState.BLOCKED)
         parent.add_child(child)
 
         # Parent should become blocked
-        assert parent.state == TaskState.BLOCKED
+        assert parent.state == NodeState.BLOCKED
 
     def test_remove_child_recomputes_state(self):
         """Removing a child should recompute parent state."""
         parent = Task("Parent")
-        child1 = Task("Child 1", parent=parent, state=TaskState.COMPLETED)
+        child1 = Task("Child 1", parent=parent, state=NodeState.COMPLETED)
 
         # Parent should be completed
-        assert parent.state == TaskState.COMPLETED
+        assert parent.state == NodeState.COMPLETED
 
         # Add a blocked child
-        child2 = Task("Child 2", parent=parent, state=TaskState.BLOCKED)
+        child2 = Task("Child 2", parent=parent, state=NodeState.BLOCKED)
 
         # Parent should be blocked due to child2
-        assert parent.state == TaskState.BLOCKED
+        assert parent.state == NodeState.BLOCKED
 
         # Remove blocked child
         parent.remove_child(child2)
 
         # Parent should now be completed
-        assert parent.state == TaskState.COMPLETED
+        assert parent.state == NodeState.COMPLETED
 
     def test_can_complete_checks(self):
         """Test the can_complete helper method."""
@@ -312,7 +312,7 @@ class TestEdgeCases:
 
         assert parent.is_leaf is True
         assert parent.complete() is True
-        assert parent.state == TaskState.COMPLETED
+        assert parent.state == NodeState.COMPLETED
 
     def test_parent_with_non_task_children_only(self):
         """A parent with only non-Task children should behave like a leaf."""
@@ -322,33 +322,4 @@ class TestEdgeCases:
 
         # Should be treated as a leaf for task state purposes
         assert parent.complete() is True
-        assert parent.state == TaskState.COMPLETED
-
-
-def visualize_tree(root):
-    """Helper function to print a tree for debugging."""
-    result = ""
-    for pre, _, node in RenderTree(root):
-        if isinstance(node, Task):
-            result += f"{pre}{node.content} ({node.state})\n"
-        else:
-            result += f"{pre}{node.content}\n"
-    return result
-
-
-class TestVisualization:
-    """Test tree visualization for debugging."""
-
-    def test_tree_visualization(self):
-        """Simple test to verify visualization helper."""
-        parent = Task("Parent")
-        child1 = Task("Child 1", parent=parent)
-        child2 = Task("Child 2", parent=parent, state=TaskState.IN_PROGRESS)
-
-        vis = visualize_tree(parent)
-        print("\nTree visualization:")
-        print(vis)
-
-        assert "Parent (in_progress)" in vis
-        assert "├── Child 1 (open)" in vis
-        assert "└── Child 2 (in_progress)" in vis
+        assert parent.state == NodeState.COMPLETED

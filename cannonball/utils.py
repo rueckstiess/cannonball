@@ -22,10 +22,6 @@ def get_raw_text_from_listtem(li: ListItem) -> Optional[str]:
         return text[0]
     else:
         return ""
-    # return text
-    # # remove dash, dash+space, or dash+space+[content] from start of text
-    # text = re.sub(r"^-\s*(?:\[.*?]\s*)?", "", text)
-    # return text
 
 
 def walk_list_items(node: Element, parent=None, level=0, apply_fn: Optional[Callable] = None):
@@ -39,11 +35,11 @@ def walk_list_items(node: Element, parent=None, level=0, apply_fn: Optional[Call
 
     Yields:
         tuple: A tuple containing the current node, its parent, and its nesting level.
-            If apply_fn is provided, yields the result of apply_fn(node, parent, level).
+            If apply_fn is provided, yields (apply_fn(node), apply_fn(parent), level).
     """
     if isinstance(node, ListItem):
         if apply_fn is not None:
-            yield apply_fn(node, parent, level)
+            yield (apply_fn(node), apply_fn(parent), level)
         else:
             yield node, parent, level
         parent = node
@@ -96,7 +92,7 @@ def extract_node_marker_and_refs(text: str) -> Tuple[Optional[str], str, list]:
     return node_marker, ref, ref_links
 
 
-def extract_str_content(node: str) -> str:
+def extract_str_content(text: str) -> str:
     """Get the content without markers or references.
 
     Args:
@@ -113,7 +109,7 @@ def extract_str_content(node: str) -> str:
         get_content("- [a] Task 5 ^ref") returns "Task 5"
     """
     # Remove leading whitespace and bullet points
-    text = re.sub(r"^\s*-\s*", "", node)
+    text = re.sub(r"^\s*-\s*", "", text)
 
     # Extract marker and references
     marker, ref, ref_links = extract_node_marker_and_refs(text)
