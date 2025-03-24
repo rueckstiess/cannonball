@@ -1,7 +1,6 @@
 from cannonball.nodes import (
     Task,
     Decision,
-    Bullet,
     Node,
     parse_markdown,
     NodeState,
@@ -268,7 +267,9 @@ class TestParentChildStateRelationship:
         child1.complete()
         child2.complete()
         assert parent1.state == NodeState.COMPLETED
-        assert grandparent.state == NodeState.IN_PROGRESS  # parent2's child is still open
+        assert (
+            grandparent.state == NodeState.IN_PROGRESS
+        )  # parent2's child is still open
 
         # Complete last task
         child3.complete()

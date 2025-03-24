@@ -227,7 +227,9 @@ class TestQuestion:
         assert question.state == NodeState.BLOCKED
 
         # Remove the blocked state from the blocking task
-        blocked_task = [child for child in question.children if child.state == NodeState.BLOCKED][0]
+        blocked_task = [
+            child for child in question.children if child.state == NodeState.BLOCKED
+        ][0]
         blocked_task.state = NodeState.OPEN
 
         # Question should now be IN_PROGRESS because there are mixed states

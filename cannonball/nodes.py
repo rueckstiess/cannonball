@@ -98,7 +98,9 @@ class Node(NodeMixin):
         return f"{self.__class__.__name__}({self.name})"
 
     @staticmethod
-    def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
+    def from_contents(
+        id: str, content: str, marker: Optional[str] = None, **kwargs
+    ) -> "Node":
         """Create a node from contents."""
 
         MD_MARKER_TO_NODE = {
@@ -220,7 +222,10 @@ class StatefulNode(Node):
                 new_state = NodeState.CANCELLED
             elif all(state in NodeState.resolved_states() for state in child_states):
                 new_state = NodeState.COMPLETED
-            elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
+            elif any(
+                state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+                for state in child_states
+            ):
                 new_state = NodeState.IN_PROGRESS
             else:
                 new_state = NodeState.OPEN
@@ -248,7 +253,10 @@ class StatefulNode(Node):
         if self.is_leaf:
             return self.state not in NodeState.resolved_states()
 
-        return all(child.state in NodeState.resolved_states() for child in self._get_stateful_children())
+        return all(
+            child.state in NodeState.resolved_states()
+            for child in self._get_stateful_children()
+        )
 
     def add_child(self, node: Node) -> None:
         """Add a child task and recompute state."""
@@ -338,7 +346,9 @@ class Decision(StatefulNode):
     def state(self, new_state: NodeState):
         """Set state of the decision. Valid states are OPEN, COMPLETED, BLOCKED."""
         if new_state in {NodeState.CANCELLED, NodeState.IN_PROGRESS}:
-            raise ValueError(f"Invalid Decision state '{new_state.name}'. Must be one of OPEN, COMPLETED, BLOCKED.")
+            raise ValueError(
+                f"Invalid Decision state '{new_state.name}'. Must be one of OPEN, COMPLETED, BLOCKED."
+            )
 
         if self._state != new_state:
             self._state = new_state
@@ -373,7 +383,9 @@ class Decision(StatefulNode):
     def get_options(self) -> list[Node]:
         """Returns all children nodes that are not blocked or cancelled."""
         viable_children = [
-            child for child in self.children if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
+            child
+            for child in self.children
+            if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
         ]
         return viable_children
 
@@ -426,7 +438,10 @@ class Decision(StatefulNode):
             child_states = [child.state for child in children]
 
             # If all children are blocked or cancelled, the decision is blocked
-            if all(state in {NodeState.BLOCKED, NodeState.CANCELLED} for state in child_states):
+            if all(
+                state in {NodeState.BLOCKED, NodeState.CANCELLED}
+                for state in child_states
+            ):
                 new_state = NodeState.BLOCKED
             # Auto-decide if applicable
             elif self.auto_decide:
@@ -589,11 +604,18 @@ class Question(Task):
         if any(state == NodeState.BLOCKED for state in child_states):
             # if any child is blocked, the question is blocked
             new_state = NodeState.BLOCKED
-        elif any(isinstance(child, (Decision, Answer)) for child in children if child.state == NodeState.COMPLETED):
+        elif any(
+            isinstance(child, (Decision, Answer))
+            for child in children
+            if child.state == NodeState.COMPLETED
+        ):
             # if any child is a completed decision or answer, the question is completed
             new_state = NodeState.COMPLETED
         # otherwise the usual in-progress logic applies
-        elif any(state in {NodeState.IN_PROGRESS, NodeState.COMPLETED} for state in child_states):
+        elif any(
+            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+            for state in child_states
+        ):
             new_state = NodeState.IN_PROGRESS
         else:
             new_state = NodeState.OPEN
