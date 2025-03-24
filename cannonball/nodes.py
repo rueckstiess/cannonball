@@ -370,7 +370,7 @@ class Decision(StatefulNode):
         else:
             return super()._get_stateful_children()
 
-    def _get_viable_children(self) -> list[Node]:
+    def get_options(self) -> list[Node]:
         """Returns all children nodes that are not blocked or cancelled."""
         viable_children = [
             child for child in self.children if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
@@ -391,7 +391,7 @@ class Decision(StatefulNode):
         if decision is None:
             self._decision = None
             self._recompute_state()
-        if decision in self._get_viable_children():
+        if decision in self.get_options():
             self._decision = decision
             self.state = NodeState.COMPLETED
             self._recompute_state()
@@ -430,10 +430,10 @@ class Decision(StatefulNode):
                 new_state = NodeState.BLOCKED
             # Auto-decide if applicable
             elif self.auto_decide:
-                viable_children = self._get_viable_children()
-                if len(viable_children) == 1:
+                options = self.get_options()
+                if len(options) == 1:
                     # If auto_decidable and exactly one child is viable, make decision
-                    self._decision = viable_children[0]
+                    self._decision = options[0]
                     new_state = NodeState.COMPLETED
                 else:
                     # Multiple or no options available

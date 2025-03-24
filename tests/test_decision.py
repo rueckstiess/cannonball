@@ -61,6 +61,16 @@ def nested_decisions():
         """)
 
 
+@pytest.fixture()
+def decision_with_sibling_options():
+    return parse_markdown("""
+    - Root
+        - [D] Decision
+        - Option 1
+        - Option 2
+    """)
+
+
 class TestDecision:
     def test_decision_init(self, open_decision):
         assert isinstance(open_decision, Decision)
@@ -331,3 +341,18 @@ class TestDecision:
         option_b1.state = NodeState.OPEN
         assert nested_decision.state == NodeState.OPEN
         assert decision.state == NodeState.OPEN
+
+    def test_decision_with_sibling_options(self, decision_with_sibling_options):
+        root = decision_with_sibling_options
+        decision = root.find_by_name("Decision")
+        option_1 = root.find_by_name("Option 1")
+        option_2 = root.find_by_name("Option 2")
+
+        assert decision.state == NodeState.OPEN
+        assert option_1.state == NodeState.COMPLETED
+        assert option_2.state == NodeState.COMPLETED
+
+        # make manual decision on option 1 (should not change the state because option 1 is not a child of decision)
+        assert decision.decide(option_1) is False
+        assert decision.state == NodeState.OPEN
+        assert decision.decision is None
