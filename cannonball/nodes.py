@@ -26,7 +26,7 @@ def parse_markdown(content: str) -> "Node":
     ast = parser.parse(dedent(content.strip("\n")))
     root = None
 
-    def _convert_li_to_node(li: Optional[ListItem]) -> Node:
+    def _convert_li_to_node(li: Optional[ListItem]) -> Optional[Node]:
         if li is None:
             return None
         text = get_raw_text_from_listtem(li)
@@ -92,8 +92,7 @@ class Node(NodeMixin):
         self.name = name
         self.id = id
         self.parent = parent
-        if children:
-            self.children = children
+        self.children = children if children else []
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -105,7 +104,7 @@ class Node(NodeMixin):
         """Create a node from contents."""
 
         MD_MARKER_TO_NODE = {
-            None: (Bullet, None),
+            None: (Bullet, NodeState.COMPLETED),
             " ": (Task, NodeState.OPEN),
             "/": (Task, NodeState.IN_PROGRESS),
             "!": (Task, NodeState.BLOCKED),
@@ -147,11 +146,16 @@ class StatefulNode(Node):
     ):
         super().__init__(name, id, parent, children)
         self._state = state
+        self._transparent = False
         if parent:
             parent.add_child(self)
         # Initial state computation if we have children
-        if children and any(isinstance(child, Task) for child in children):
+        if children and any(isinstance(child, StatefulNode) for child in children):
             self._recompute_state(notify=False)
+
+    @property
+    def is_transparent(self) -> bool:
+        return self._transparent
 
     @property
     def state(self) -> NodeState:
@@ -179,39 +183,52 @@ class StatefulNode(Node):
         if self.parent:
             self.parent._recompute_state()
 
+    def _get_stateful_children(self) -> list["StatefulNode"]:
+        """Get stateful children of this node, ignoring leaf Bullets."""
+        children = [c for c in self.children if isinstance(c, StatefulNode)]
+        transparent = [c for c in children if c.is_transparent]
+
+        # replace each transparent child with its children
+        children = [c for c in children if c not in transparent]
+        for node in transparent:
+            children.extend(node._get_stateful_children())
+
+        return children
+
+    def _get_leaf_state(self) -> NodeState:
+        """By default, the leaf state remains as is."""
+        return self._state
+
     def _recompute_state(self, notify: bool = True):
         """Derive task state from children's states.
 
         Args:
             notify: Whether to notify parent after recomputation
         """
-        # Skip for leaf nodes - their state is set explicitly
-        if self.is_leaf:
-            return
 
         # Collect states of child tasks
-        child_tasks = [child for child in self.children if isinstance(child, Task)]
+        children = self._get_stateful_children()
 
         # If no child tasks, maintain current state
-        if not child_tasks:
-            return
-
-        child_states = [child.state for child in child_tasks]
-
-        # Apply state derivation rules
-        if any(state == NodeState.BLOCKED for state in child_states):
-            new_state = NodeState.BLOCKED
-        elif all(state == NodeState.CANCELLED for state in child_states):
-            new_state = NodeState.CANCELLED
-        elif all(state in NodeState.resolved_states() for state in child_states):
-            new_state = NodeState.COMPLETED
-        elif any(
-            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
-            for state in child_states
-        ):
-            new_state = NodeState.IN_PROGRESS
+        if not children:
+            new_state = self._get_leaf_state()
         else:
-            new_state = NodeState.OPEN
+            child_states = [child.state for child in children]
+
+            # Apply state derivation rules
+            if any(state == NodeState.BLOCKED for state in child_states):
+                new_state = NodeState.BLOCKED
+            elif all(state == NodeState.CANCELLED for state in child_states):
+                new_state = NodeState.CANCELLED
+            elif all(state in NodeState.resolved_states() for state in child_states):
+                new_state = NodeState.COMPLETED
+            elif any(
+                state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
+                for state in child_states
+            ):
+                new_state = NodeState.IN_PROGRESS
+            else:
+                new_state = NodeState.OPEN
 
         # Only update if state actually changes
         if self._state != new_state:
@@ -224,7 +241,7 @@ class StatefulNode(Node):
     def _propagate_cancellation(self):
         """Propagate CANCELLED state to all children."""
         for child in self.children:
-            if isinstance(child, Task) and child.state != NodeState.CANCELLED:
+            if isinstance(child, StatefulNode) and child.state != NodeState.CANCELLED:
                 child.state = NodeState.CANCELLED
 
     def is_resolved(self) -> bool:
@@ -236,8 +253,10 @@ class StatefulNode(Node):
         if self.is_leaf:
             return self.state not in NodeState.resolved_states()
 
-        child_tasks = [child for child in self.children if isinstance(child, Task)]
-        return all(child.state in NodeState.resolved_states() for child in child_tasks)
+        return all(
+            child.state in NodeState.resolved_states()
+            for child in self._get_stateful_children()
+        )
 
     def add_child(self, node: Node) -> None:
         """Add a child task and recompute state."""
@@ -264,7 +283,10 @@ class Bullet(StatefulNode):
         children: Optional[list[Node]] = None,
         **kwargs,  # for API compatibility
     ):
-        super().__init__(name, id, parent, children)
+        # Leaf bullets are always COMPLETED
+        super().__init__(name, id, parent, children, state=NodeState.COMPLETED)
+        # Bullets are transparent
+        self._transparent = True
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -272,66 +294,179 @@ class Bullet(StatefulNode):
     def __str__(self):
         return f"{self.name}"
 
+    @property
+    def state(self) -> NodeState:
+        return self._state
+
+    @state.setter
+    def state(self, new_state: NodeState):
+        """Set state of the bullet. This is not allowed for leaf bullets."""
+        raise ValueError("Bullet state cannot be changed manually")
+
+    def _get_leaf_state(self) -> NodeState:
+        return NodeState.COMPLETED
+
 
 class Decision(StatefulNode):
     """Decision nodes represent forkes in the road."""
 
     markers = {
         NodeState.OPEN: "D",
-        NodeState.IN_PROGRESS: "D/",
         NodeState.BLOCKED: "D!",
         NodeState.COMPLETED: "D✓",
     }
 
+    def __init__(
+        self,
+        name: str,
+        id: Optional[str] = None,
+        parent: Optional[Node] = None,
+        children: Optional[list[Node]] = None,
+        state: NodeState = NodeState.OPEN,
+        auto_decide: bool = False,
+    ):
+        super().__init__(name, id, parent, children, state)
+
+        self._auto_decide: bool = auto_decide
+        self._decision = None
+
     def __str__(self):
         return f"[D] {self.name}"
 
-    def get_viable_options(self) -> list[Node]:
+    @property
+    def is_transparent(self) -> bool:
+        """Decisions are transparent when they are COMPLETED and have children."""
+        return self.state == NodeState.COMPLETED and not self.is_leaf
+
+    @property
+    def state(self) -> NodeState:
+        return self._state
+
+    @state.setter
+    def state(self, new_state: NodeState):
+        """Set state of the decision. Valid states are OPEN, COMPLETED, BLOCKED."""
+        if new_state in {NodeState.CANCELLED, NodeState.IN_PROGRESS}:
+            raise ValueError(
+                f"Invalid Decision state '{new_state.name}'. Must be one of OPEN, COMPLETED, BLOCKED."
+            )
+
+        if self._state != new_state:
+            self._state = new_state
+            self._notify_parent()
+
+    @property
+    def decision(self) -> Optional[Node]:
+        """Get the decision node."""
+        return self._decision
+
+    @property
+    def auto_decide(self) -> bool:
+        return self._auto_decide
+
+    @auto_decide.setter
+    def auto_decide(self, value: bool):
+        """Set auto_decide property and recompute state."""
+        if self._auto_decide != value:
+            self._auto_decide = value
+            if self._auto_decide:
+                # If auto_decide is set to True, reset decision
+                self._decision = None
+            self._recompute_state()
+
+    def _get_stateful_children(self):
+        if self.is_transparent:
+            # we only consider the decision sub-tree now
+            return [self._decision]
+        else:
+            return super()._get_stateful_children()
+
+    def get_options(self) -> list[Node]:
         """Returns all children nodes that are not blocked or cancelled."""
-        viable_options = [
+        viable_children = [
             child
             for child in self.children
             if child.state not in {NodeState.BLOCKED, NodeState.CANCELLED}
         ]
-        return viable_options
+        return viable_children
+
+    def decide(self, decision: Optional[Node]) -> bool:
+        """Set the decision node to a specific child node.
+
+        Args:
+            decision (Node): The child node to set as the decision, or None to unset the decision.
+        Returns:
+            bool: True if the decision was set successfully, False otherwise.
+        """
+        self.auto_decide = False
+        if decision == self._decision:
+            return False
+        if decision is None:
+            self._decision = None
+            self._recompute_state()
+        if decision in self.get_options():
+            self._decision = decision
+            self.state = NodeState.COMPLETED
+            self._recompute_state()
+            return True
+        return False
+
+    def _get_leaf_state(self) -> NodeState:
+        return NodeState.OPEN
 
     def _recompute_state(self, notify=True):
-        # Collect states of child tasks
-        child_nodes = [
-            child for child in self.children if isinstance(child, StatefulNode)
-        ]
+        """Recompute the state of the decision node"""
+        # Initialize with current state as default
+        new_state = self._state
 
-        # If no child tasks, maintain current state
-        if not child_nodes:
+        # If the existing decision points to a blocked or cancelled node, reset it
+        if self.decision and self.decision.state in {
+            NodeState.BLOCKED,
+            NodeState.CANCELLED,
+        }:
+            self._decision = None
+
+        # Collect states of child nodes (ignoring own transparency logic)
+        children = super()._get_stateful_children()
+
+        # If auto_decide is false and we have a decision, use it
+        if not self.auto_decide and self._decision:
+            new_state = self._state
+        # If no child nodes, set to OPEN
+        elif not children:
             new_state = NodeState.OPEN
-
-        child_states = [child.state for child in child_nodes]
-
-        # Apply state derivation rules
-        if all(state == NodeState.BLOCKED for state in child_states):
-            # if all children are blocked, the decision is blocked
-            new_state = NodeState.BLOCKED
-        elif (
-            len([state for state in child_states if state == NodeState.COMPLETED]) == 1
-        ):
-            # if exactly one child is completed, the decision is completed
-            new_state = NodeState.COMPLETED
-        # otherwise the usual in-progress logic applies
-        elif any(
-            state in {NodeState.IN_PROGRESS, NodeState.COMPLETED}
-            for state in child_states
-        ):
-            new_state = NodeState.IN_PROGRESS
         else:
-            new_state = NodeState.OPEN
+            child_states = [child.state for child in children]
 
-        # Only update if state actually changes
-        if self._state != new_state:
-            self._state = new_state
+            # If all children are blocked or cancelled, the decision is blocked
+            if all(
+                state in {NodeState.BLOCKED, NodeState.CANCELLED}
+                for state in child_states
+            ):
+                new_state = NodeState.BLOCKED
+            # Auto-decide if applicable
+            elif self.auto_decide:
+                options = self.get_options()
+                if len(options) == 1:
+                    # If auto_decidable and exactly one child is viable, make decision
+                    self._decision = options[0]
+                    new_state = NodeState.COMPLETED
+                else:
+                    # Multiple or no options available
+                    self._decision = None
+                    new_state = NodeState.OPEN
+            # If we have an active decision, mark as completed
+            elif self.decision is not None:
+                new_state = NodeState.COMPLETED
+            else:
+                # Non-auto-decidable with no decision made yet
+                new_state = NodeState.OPEN
 
-            # Notify parent if needed
-            if notify:
-                self._notify_parent()
+        # Always notify parent as the decision sub-tree might have changed
+        self._state = new_state
+
+        # Notify parent if needed
+        if notify:
+            self._notify_parent()
 
 
 class Answer(StatefulNode):
@@ -354,6 +489,9 @@ class Answer(StatefulNode):
 
     def __str__(self):
         return f"[A] {self.name}"
+
+    def _get_leaf_state(self) -> NodeState:
+        return NodeState.COMPLETED
 
 
 class Task(StatefulNode):
@@ -398,8 +536,7 @@ class Task(StatefulNode):
             return True
 
         # Tasks with children need all children to be resolved
-        child_tasks = [child for child in self.children if isinstance(child, Task)]
-        if all(child.state in NodeState.resolved_states() for child in child_tasks):
+        if self.can_complete():
             self.state = NodeState.COMPLETED
             return True
 
@@ -430,6 +567,9 @@ class Task(StatefulNode):
 
         return False
 
+    def _get_leaf_state(self) -> NodeState:
+        return NodeState.OPEN
+
 
 class Question(Task):
     """Question node with state propagation and resolution logic. They are similar to tasks but they cannot be
@@ -452,15 +592,13 @@ class Question(Task):
 
     def _recompute_state(self, notify=True):
         # Collect states of child tasks
-        child_tasks = [
-            child for child in self.children if isinstance(child, StatefulNode)
-        ]
+        children = self._get_stateful_children()
 
         # If no child tasks, maintain current state
-        if not child_tasks:
+        if not children:
             new_state = NodeState.OPEN
 
-        child_states = [child.state for child in child_tasks]
+        child_states = [child.state for child in children]
 
         # Apply state derivation rules
         if any(state == NodeState.BLOCKED for state in child_states):
@@ -468,7 +606,7 @@ class Question(Task):
             new_state = NodeState.BLOCKED
         elif any(
             isinstance(child, (Decision, Answer))
-            for child in child_tasks
+            for child in children
             if child.state == NodeState.COMPLETED
         ):
             # if any child is a completed decision or answer, the question is completed
@@ -489,3 +627,6 @@ class Question(Task):
             # Notify parent if needed
             if notify:
                 self._notify_parent()
+
+    def _get_leaf_state(self) -> NodeState:
+        return NodeState.OPEN
