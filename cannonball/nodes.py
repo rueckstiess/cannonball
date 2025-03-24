@@ -315,11 +315,11 @@ class Decision(StatefulNode):
         parent: Optional[Node] = None,
         children: Optional[list[Node]] = None,
         state: NodeState = NodeState.OPEN,
-        auto_decidable: bool = False,
+        auto_decide: bool = False,
     ):
         super().__init__(name, id, parent, children, state)
 
-        self._auto_decidable: bool = auto_decidable
+        self._auto_decide: bool = auto_decide
         self._decision = None
 
     def __str__(self):
@@ -350,14 +350,17 @@ class Decision(StatefulNode):
         return self._decision
 
     @property
-    def auto_decidable(self) -> bool:
-        return self._auto_decidable
+    def auto_decide(self) -> bool:
+        return self._auto_decide
 
-    @auto_decidable.setter
-    def auto_decidable(self, value: bool):
-        """Set auto_decidable property and recompute state."""
-        if self._auto_decidable != value:
-            self._auto_decidable = value
+    @auto_decide.setter
+    def auto_decide(self, value: bool):
+        """Set auto_decide property and recompute state."""
+        if self._auto_decide != value:
+            self._auto_decide = value
+            if self._auto_decide:
+                # If auto_decide is set to True, reset decision
+                self._decision = None
             self._recompute_state()
 
     def _get_stateful_children(self):
@@ -374,13 +377,24 @@ class Decision(StatefulNode):
         ]
         return viable_children
 
-    def decide(self, decision: Node) -> bool:
-        """Set the decision node to a specific child node."""
+    def decide(self, decision: Optional[Node]) -> bool:
+        """Set the decision node to a specific child node.
+
+        Args:
+            decision (Node): The child node to set as the decision, or None to unset the decision.
+        Returns:
+            bool: True if the decision was set successfully, False otherwise.
+        """
+        self.auto_decide = False
+        if decision == self._decision:
+            return False
+        if decision is None:
+            self._decision = None
+            self._recompute_state()
         if decision in self._get_viable_children():
             self._decision = decision
             self.state = NodeState.COMPLETED
-            # notify parent as the new decision subtree may be different
-            self._notify_parent()
+            self._recompute_state()
             return True
         return False
 
@@ -402,8 +416,11 @@ class Decision(StatefulNode):
         # Collect states of child nodes (ignoring own transparency logic)
         children = super()._get_stateful_children()
 
+        # If auto_decide is false and we have a decision, use it
+        if not self.auto_decide and self._decision:
+            new_state = self._state
         # If no child nodes, set to OPEN
-        if not children:
+        elif not children:
             new_state = NodeState.OPEN
         else:
             child_states = [child.state for child in children]
@@ -412,7 +429,7 @@ class Decision(StatefulNode):
             if all(state in {NodeState.BLOCKED, NodeState.CANCELLED} for state in child_states):
                 new_state = NodeState.BLOCKED
             # Auto-decide if applicable
-            elif self.auto_decidable:
+            elif self.auto_decide:
                 viable_children = self._get_viable_children()
                 if len(viable_children) == 1:
                     # If auto_decidable and exactly one child is viable, make decision

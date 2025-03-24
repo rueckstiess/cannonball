@@ -51,19 +51,14 @@ def decision_with_tasks():
 
 
 @pytest.fixture()
-def decision_for_another_branch():
+def nested_decisions():
     return parse_markdown("""
-        - Root
-            - Branch 1
-                - Option 1
-                    - [ ] Open Task
-                - Option 2
-                    - [x] Completed Task
-                - Option 3
-                    - [!] Blocked Task
-            - Branch 2
-                - [D] Decision
-    """)
+        - [D] Decision
+            - [ ] Option A
+            - [D] Nested Decision
+                - [ ] Option B1
+                - [ ] Option B2
+        """)
 
 
 class TestDecision:
@@ -99,7 +94,6 @@ class TestDecision:
         assert decision.state == NodeState.OPEN
 
         bullet_1 = decision.find_by_name("I need to make a decision here")
-
         assert isinstance(bullet_1, Bullet)
         assert bullet_1.state == NodeState.COMPLETED
         assert bullet_1.parent == decision
@@ -109,7 +103,49 @@ class TestDecision:
         assert bullet_2.state == NodeState.COMPLETED
         assert bullet_2.parent == decision
 
-        # make manual decision
+        # make manual decision (auto-decidable is False)
+        decision.decide(bullet_1)
+        assert decision.state == NodeState.COMPLETED
+        assert decision.decision == bullet_1
+        assert decision.auto_decide is False
+
+        # unset the decision
+        decision.decide(None)
+        assert decision.state == NodeState.OPEN
+        assert decision.decision is None
+
+    def test_auto_decision_with_2_bullets(self, decision_with_2_bullets):
+        decision = decision_with_2_bullets
+        decision.auto_decide = True
+        assert decision.state == NodeState.OPEN
+
+        bullet_1 = decision.find_by_name("I need to make a decision here")
+        assert isinstance(bullet_1, Bullet)
+        assert bullet_1.state == NodeState.COMPLETED
+        assert bullet_1.parent == decision
+
+        bullet_2 = decision.find_by_name("Another bullet")
+        assert isinstance(bullet_2, Bullet)
+        assert bullet_2.state == NodeState.COMPLETED
+        assert bullet_2.parent == decision
+
+        # make manual decision (disables auto_decide)
+        decision.decide(bullet_1)
+        assert decision.state == NodeState.COMPLETED
+        assert decision.decision == bullet_1
+        assert decision.auto_decide is False
+
+        # turn auto-decidable back on
+        decision.auto_decide = True
+        assert decision.state == NodeState.OPEN
+        assert decision.decision is None
+        assert decision.auto_decide is True
+
+        # unset the decision
+        decision.decide(None)
+        assert decision.state == NodeState.OPEN
+        assert decision.decision is None
+        assert decision.auto_decide is False
 
     def test_auto_decision_with_task(self, decision_with_task):
         decision = decision_with_task
@@ -125,7 +161,7 @@ class TestDecision:
         assert decision.state == NodeState.OPEN
 
         # decision is now auto-decidable and has one viable option
-        decision.auto_decidable = True
+        decision.auto_decide = True
         assert decision.state == NodeState.COMPLETED
         assert decision.decision == task
 
@@ -141,7 +177,7 @@ class TestDecision:
 
     def test_decision_with_tasks(self, decision_with_tasks):
         decision = decision_with_tasks
-        decision.auto_decidable = False
+        decision.auto_decide = False
 
         task_1 = decision.find_by_name("Task 1")
         task_2 = decision.find_by_name("Task 2")
@@ -199,7 +235,7 @@ class TestDecision:
 
     def test_auto_decision_with_tasks(self, decision_with_tasks):
         decision = decision_with_tasks
-        decision.auto_decidable = True
+        decision.auto_decide = True
 
         task_1 = decision.find_by_name("Task 1")
         task_2 = decision.find_by_name("Task 2")
@@ -243,3 +279,55 @@ class TestDecision:
         # now the decision has 2 cancelled and 1 blocked option and is blocked
         assert decision.state == NodeState.BLOCKED
         assert decision.decision is None
+
+    def test_nested_decisions(self, nested_decisions):
+        decision = nested_decisions
+        option_a = decision.find_by_name("Option A")
+        nested_decision = decision.find_by_name("Nested Decision")
+        option_b1 = decision.find_by_name("Option B1")
+        option_b2 = decision.find_by_name("Option B2")
+
+        # decisions and tasks are in open state
+        assert decision.state == NodeState.OPEN
+        assert nested_decision.state == NodeState.OPEN
+        assert option_a.state == NodeState.OPEN
+        assert option_b1.state == NodeState.OPEN
+        assert option_b2.state == NodeState.OPEN
+
+        # # make manual decision on the nested decision
+        decision.decide(nested_decision)
+        assert nested_decision.state == NodeState.OPEN
+        assert decision.state == NodeState.COMPLETED
+
+        # now block both nested options, decision should be open again
+        option_b1.block()
+        option_b2.block()
+        assert nested_decision.state == NodeState.BLOCKED
+        assert decision.state == NodeState.OPEN
+
+    def test_auto_nested_decisions(self, nested_decisions):
+        decision = nested_decisions
+        decision.auto_decide = True
+        option_a = decision.find_by_name("Option A")
+        nested_decision = decision.find_by_name("Nested Decision")
+        option_b1 = decision.find_by_name("Option B1")
+        option_b2 = decision.find_by_name("Option B2")
+
+        # decisions and tasks are in open state
+        assert decision.state == NodeState.OPEN
+        assert nested_decision.state == NodeState.OPEN
+        assert option_a.state == NodeState.OPEN
+        assert option_b1.state == NodeState.OPEN
+        assert option_b2.state == NodeState.OPEN
+
+        # now block both nested options, decision should be option A
+        option_b1.block()
+        option_b2.block()
+        assert nested_decision.state == NodeState.BLOCKED
+        assert decision.state == NodeState.COMPLETED
+        assert decision.decision == option_a
+
+        # unblock option B1, decision should be open again
+        option_b1.state = NodeState.OPEN
+        assert nested_decision.state == NodeState.OPEN
+        assert decision.state == NodeState.OPEN
