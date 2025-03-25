@@ -222,3 +222,69 @@ class TestTask:
         # enable auto-resolve again, now it should resolve
         task.auto_resolve = True
         assert task.is_completed is True
+
+    def test_task_block_non_leaf(self):
+        """Test blocking a non-leaf task."""
+        parent = Task("Parent Task")
+        Task("Child Task", parent=parent)
+        result = parent.block()
+        assert result is False
+
+    def test_task_unblock_non_leaf(self):
+        """Test unblocking a non-leaf task."""
+        parent = Task("Parent Task", blocked=True)
+        Task("Child Task", parent=parent)
+        result = parent.unblock()
+        assert result is False
+
+    def test_task_complete_non_leaf(self):
+        """Test completing a non-leaf task."""
+        parent = Task("Parent Task")
+        Task("Child Task", parent=parent)
+        result = parent.complete()
+        assert result is False
+
+    def test_task_reopen_non_leaf(self):
+        """Test reopening a non-leaf task."""
+        parent = Task("Parent Task", completed=True)
+        Task("Child Task", parent=parent)
+        result = parent.reopen()
+        assert result is False
+
+    def test_task_block_already_blocked(self):
+        """Test blocking an already blocked task."""
+        task = Task("Test Task", blocked=True)
+        result = task.block()
+        assert result is False
+
+    def test_task_unblock_already_unblocked(self):
+        """Test unblocking an already unblocked task."""
+        task = Task("Test Task")
+        result = task.unblock()
+        assert result is False
+
+    def test_task_complete_already_completed(self):
+        """Test completing an already completed task."""
+        task = Task("Test Task", completed=True)
+        result = task.complete()
+        assert result is False
+
+    def test_task_reopen_not_completed(self):
+        """Test reopening a task that is not completed."""
+        task = Task("Test Task")
+        result = task.reopen()
+        assert result is False
+
+    def test_task_leaf_state(self):
+        """Test the _leaf_state method of Task."""
+        # Test with auto_resolve=True
+        task1 = Task("Task 1", auto_resolve=True)
+        completed, blocked = task1._leaf_state()
+        assert completed is False
+        assert blocked is False
+
+        # Test with auto_resolve=False
+        task2 = Task("Task 2", auto_resolve=False, completed=True, blocked=False)
+        completed, blocked = task2._leaf_state()
+        assert completed is True
+        assert blocked is False

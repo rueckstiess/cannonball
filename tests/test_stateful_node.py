@@ -37,6 +37,13 @@ class TestStatefulNode:
 
         assert child.parent == parent
         assert child in parent.children
+        
+    def test_repr_method(self):
+        """Test the __repr__ method of StatefulNode."""
+        node = StatefulNode("Test Node", completed=True, blocked=False)
+        repr_str = repr(node)
+        expected = "StatefulNode(Test Node, completed=True, blocked=False)"
+        assert repr_str == expected
 
     def test_recompute_stated_not_called_without_parent_children(self, mocker):
         """Test that recompute_state is not called on initialization if there are no children."""

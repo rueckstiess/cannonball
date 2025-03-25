@@ -18,6 +18,12 @@ class TestDecision:
         assert decision.name == "Decision"
         assert decision.parent is None
 
+    def test_decision_str_representation(self):
+        """Test the string representation of a Decision."""
+        decision = Decision("Test Decision")
+        str_repr = str(decision)
+        assert str_repr == "[D] Test Decision"
+
     def test_decision_init_blocked(self):
         decision = Decision("Decision", blocked=True)
         assert decision.auto_decide is False
@@ -36,6 +42,13 @@ class TestDecision:
         assert decision.is_completed is False
         # a decision with no options is blocked
         assert decision.is_blocked is True
+
+    def test_set_auto_decide_to_same_value(self):
+        """Test setting auto_decide to the same value (should not trigger recomputation)."""
+        decision = Decision("Decision", auto_decide=True)
+        # Set to the same value
+        decision.auto_decide = True
+        assert decision.auto_decide is True
 
     def test_decision_init_auto_decide_with_options(self):
         option1 = Bullet("Option 1")
@@ -402,3 +415,21 @@ class TestDecisionWithOtherOptions:
         assert decision.is_blocked is False
         assert decision.decision is None
         assert decision.get_options() == list(bullet_with_options.children)
+
+    def test_get_options_with_include_blocked(self):
+        """Test getting options including blocked ones."""
+        decision = Decision("Decision")
+        option1 = Task("Option 1", parent=decision)
+        option2 = Task("Option 2", parent=decision, blocked=True)
+
+        # Get options without blocked ones (default)
+        options = decision.get_options()
+        assert len(options) == 1
+        assert option1 in options
+        assert option2 not in options
+
+        # Get options including blocked ones
+        all_options = decision.get_options(include_blocked=True)
+        assert len(all_options) == 2
+        assert option1 in all_options
+        assert option2 in all_options

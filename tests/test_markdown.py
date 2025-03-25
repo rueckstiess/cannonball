@@ -7,6 +7,7 @@ from cannonball.nodes import (
     Answer,
     parse_markdown,
 )
+from cannonball.utils import walk_list_items
 import pytest
 
 
@@ -43,6 +44,29 @@ class TestParseMarkdown:
         """Test parsing markdown with no list items."""
         result = parse_markdown("This is just text")
         assert result is None
+
+    def test_parse_markdown_converts_node_correctly(self):
+        """Test that parse_markdown converts list items to nodes correctly and handles multiple references."""
+        markdown = """
+        - [!] Blocked task with refs ^123 [[#^ref1]] [[#^ref2]]
+        """
+        root = parse_markdown(markdown)
+        assert isinstance(root, Task)
+        assert root.name == "Blocked task with refs"
+        assert root.is_blocked
+
+    def test_multiple_roots(self):
+        """Test parsing markdown with multiple root lists to force common root creation."""
+        markdown = """
+        - Root 1
+        
+        - Root 2
+        """
+        root = parse_markdown(markdown)
+        assert root.name == "Root"
+        assert len(root.children) == 2
+        assert root.children[0].name == "Root 1"
+        assert root.children[1].name == "Root 2"
 
     def test_simple_bullet_list(self):
         """Test parsing a simple bullet list."""

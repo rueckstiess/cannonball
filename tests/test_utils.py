@@ -3,10 +3,13 @@ from cannonball.utils import (
     walk_list_items,
     extract_node_marker_and_refs,
     extract_str_content,
+    print_ast,
 )
 from marko import Markdown
 from marko.block import ListItem
 from textwrap import dedent
+import io
+import sys
 
 
 class TestGetRawTextFromListItem:
@@ -25,6 +28,17 @@ class TestGetRawTextFromListItem:
         """Test extracting text from an empty ListItem."""
         parser = Markdown()
         markdown = "- "
+        ast = parser.parse(markdown)
+        list_item = ast.children[0].children[0]
+
+        assert isinstance(list_item, ListItem)
+        result = get_raw_text_from_listtem(list_item)
+        assert result == ""
+
+    def test_get_raw_text_empty_line_break_listitem(self):
+        """Test extracting text from a ListItem with empty text and line break."""
+        parser = Markdown()
+        markdown = "- \n"
         ast = parser.parse(markdown)
         list_item = ast.children[0].children[0]
 
@@ -187,3 +201,31 @@ class TestExtractStrContent:
         text = "- [?] Task 5 [[#^ref123]]"
         content = extract_str_content(text)
         assert content == "Task 5"
+
+
+class TestPrintAst:
+    def test_print_ast(self, monkeypatch):
+        """Test print_ast function."""
+        # Create a simple markdown string
+        markdown = dedent("""\
+        - Item 1
+            - Nested 1.1
+        """)
+
+        # Parse the markdown to get an AST
+        parser = Markdown()
+        ast = parser.parse(markdown)
+
+        # Redirect stdout to capture print output
+        captured_output = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_output)
+
+        # Call the print_ast function
+        print_ast(ast)
+
+        # Get the captured output
+        output = captured_output.getvalue()
+
+        # Check that the output contains the expected text
+        assert "Item 1" in output
+        assert "- Nested 1.1" in output
