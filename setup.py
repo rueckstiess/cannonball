@@ -9,6 +9,7 @@ setup(
         "pymongo>=4.5.0",
         "marko>=2.1.2",
         "pytest>=7.3.1",
+        "pytest-mock>=3.14.0",
         "ruff==0.11.0",
     ],
     author="Thomas Rueckstiess",

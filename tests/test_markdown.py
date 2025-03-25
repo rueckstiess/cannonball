@@ -1,11 +1,11 @@
 from cannonball.nodes import (
+    StatefulNode,
     Task,
     Bullet,
+    Decision,
     Question,
     Answer,
-    Decision,
     parse_markdown,
-    NodeState,
 )
 import pytest
 
@@ -21,13 +21,16 @@ def task_with_2_subtasks():
 
 @pytest.fixture(scope="class")
 def nested_task_with_bullets():
-    return parse_markdown("""
+    return parse_markdown(
+        """
         - [ ] Task 1
             - [ ] Task 2
                 - Bullet 1
                 - Bullet 2
             - [x] Task 3
-        """)
+        """,
+        auto_resolve=False,  # to prevent auto-completing Task 2
+    )
 
 
 class TestParseMarkdown:
@@ -49,14 +52,10 @@ class TestParseMarkdown:
         """
         root = parse_markdown(markdown)
 
-        assert isinstance(root, Bullet)
-        # The last item becomes the root in the parse_markdown function
-        assert root.name == "Item 2"
-        assert len(root.children) == 0
-
-        # In this case, Item 1 gets attached as a child of Item 2
-        # (This seems counterintuitive, but it's how the parse_markdown function currently works)
-        # No assertions on children since there aren't any children
+        assert isinstance(root, StatefulNode)
+        # Root node was added
+        assert root.name == "Root"
+        assert len(root.children) == 2
 
     def test_mixed_node_types(self):
         """Test parsing mixed node types."""
@@ -102,15 +101,15 @@ class TestMarkdown:
 
         assert isinstance(task1, Task)
         assert len(task1.children) == 2
-        assert task1.state == NodeState.IN_PROGRESS
+        assert task1.is_completed is False
 
         task2 = task1.find_by_name("Task 2")
         assert isinstance(task2, Task)
-        assert task2.state == NodeState.OPEN
+        assert task2.is_completed is False
 
         task3 = task1.find_by_name("Task 3")
         assert isinstance(task3, Task)
-        assert task3.state == NodeState.COMPLETED
+        assert task3.is_completed is True
 
     def test_nested_task_with_bullets(self, nested_task_with_bullets):
         """Test nested task with bullets."""
@@ -118,17 +117,17 @@ class TestMarkdown:
 
         assert isinstance(task1, Task)
         assert len(task1.children) == 2
-        assert task1.state == NodeState.IN_PROGRESS
+        assert task1.is_completed is False
 
         task2 = task1.find_by_name("Task 2")
         assert isinstance(task2, Task)
         assert len(task2.children) == 2
-        assert task2.state == NodeState.OPEN
+        assert task2.is_completed is False
 
         bullet1 = task2.find_by_name("Bullet 1")
         assert isinstance(bullet1, Bullet)
-        assert bullet1.state == NodeState.COMPLETED
+        assert bullet1.is_completed is True
 
         bullet2 = task2.find_by_name("Bullet 2")
         assert isinstance(bullet2, Bullet)
-        assert bullet2.state == NodeState.COMPLETED
+        assert bullet2.is_completed is True

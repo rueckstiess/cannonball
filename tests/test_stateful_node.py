@@ -1,187 +1,205 @@
-from cannonball.nodes import (
-    NodeState,
-    StatefulNode,
-    Task,
-)
+from cannonball.nodes import StatefulNode
+import pytest
 
 
-class TestStatefulNodeBasics:
-    """Test basic stateful node creation and properties."""
-
-    def test_create_stateful_node(self):
-        """Test stateful node creation and default state."""
+class TestStatefulNode:
+    def test_stateful_node_init(self):
+        """Test initializing a stateful node with different states."""
         node = StatefulNode("Test Node")
-        assert node.state == NodeState.OPEN
-        assert node.name == "Test Node"
+        assert not node.is_completed
+        assert not node.is_blocked
 
-    def test_create_stateful_node_with_state(self):
-        """Test creating a stateful node with a specific state."""
-        node = StatefulNode("Test Node", state=NodeState.IN_PROGRESS)
-        assert node.state == NodeState.IN_PROGRESS
+        completed_node = StatefulNode("Completed Node", completed=True)
+        assert completed_node.is_completed
+        assert not completed_node.is_blocked
 
-    def test_repr(self):
-        """Test the repr of a stateful node includes the state."""
-        node = StatefulNode("Test Node", state=NodeState.BLOCKED)
-        # The actual format includes the full NodeState.BLOCKED rather than just BLOCKED
-        assert "StatefulNode(Test Node, state=NodeState.BLOCKED)" in repr(node)
+        blocked_node = StatefulNode("Blocked Node", blocked=True)
+        assert not blocked_node.is_completed
+        assert blocked_node.is_blocked
 
-    def test_str(self):
-        """Test the string representation of a stateful node."""
-        node = StatefulNode("Test Node", state=NodeState.OPEN)
-        assert str(node) == "[ ] Test Node"
+        with pytest.raises(ValueError):
+            # Cannot have both completed and blocked states
+            StatefulNode("Invalid Node", completed=True, blocked=True)
 
-        node.state = NodeState.IN_PROGRESS
-        assert str(node) == "[/] Test Node"
+    def test_add_parent_in_init(self):
+        """Test adding a parent during initialization."""
+        parent = StatefulNode("Parent Node")
+        child = StatefulNode("Child Node", parent=parent)
 
-        node.state = NodeState.BLOCKED
-        assert str(node) == "[!] Test Node"
+        assert child.parent == parent
+        assert child in parent.children
 
-        node.state = NodeState.COMPLETED
-        assert str(node) == "[✓] Test Node"
+    def test_add_children_in_init(self):
+        """Test adding a parent during initialization."""
+        child = StatefulNode("Child Node")
 
-        node.state = NodeState.CANCELLED
-        assert str(node) == "[-] Test Node"
+        parent = StatefulNode("Parent Node", children=[child])
 
+        assert child.parent == parent
+        assert child in parent.children
 
-class TestStatefulNodeStateChanges:
-    """Test state changes for stateful nodes."""
+    def test_recompute_stated_not_called_without_parent_children(self, mocker):
+        """Test that recompute_state is not called on initialization if there are no children."""
 
-    def test_state_setter(self):
-        """Test that the state setter properly updates the state."""
-        node = StatefulNode("Test Node")
-        assert node.state == NodeState.OPEN
+        spy = mocker.spy(StatefulNode, "_recompute_state")
+        StatefulNode("Test Node")
+        assert spy.call_count == 0
 
-        node.state = NodeState.IN_PROGRESS
-        assert node.state == NodeState.IN_PROGRESS
+    def test_recompute_state_called_with_children(self, mocker):
+        """Test that recompute_state is called on initialization if there are children."""
 
-        node.state = NodeState.COMPLETED
-        assert node.state == NodeState.COMPLETED
+        class ChildNode(StatefulNode):
+            pass
+
+        class ParentNode(StatefulNode):
+            pass
+
+        child_spy = mocker.spy(ChildNode, "_recompute_state")
+        child = ChildNode("Child Node")
+        assert child_spy.call_count == 0
+
+        parent_spy = mocker.spy(ParentNode, "_recompute_state")
+        ParentNode("Parent Node", children=[child])
+        # called twice, but hard to avoid
+        parent_spy.assert_called()
+
+    def test_recompute_state_called_with_parent(self, mocker):
+        """Test that recompute_state is called on initialization if there are children."""
+
+        class ParentNode(StatefulNode):
+            pass
+
+        class ChildNode(StatefulNode):
+            pass
+
+        parent_spy = mocker.spy(ParentNode, "_recompute_state")
+        parent = ParentNode("Parent Node")
+        assert parent_spy.call_count == 0
+
+        child_spy = mocker.spy(ChildNode, "_recompute_state")
+        ChildNode("Child Node", parent=parent)
+
+        assert child_spy.call_count == 0
+        parent_spy.assert_called()
+
+    def test_parent_child_relationship(self):
+        """Test parent-child relationship creation."""
+        parent = StatefulNode("Parent")
+        child = StatefulNode("Child", parent=parent)
+
+        assert child.parent == parent
+        assert child in parent.children
 
     def test_state_propagation_to_parent(self):
-        """Test that state changes propagate to parent."""
+        """Test that state changes in children propagate to parents."""
         parent = StatefulNode("Parent")
-        child = Task("Child", parent=parent)
+        child1 = StatefulNode("Child 1", parent=parent)
+        child2 = StatefulNode("Child 2", parent=parent)
 
-        # Both should start OPEN
-        assert parent.state == NodeState.OPEN
-        assert child.state == NodeState.OPEN
+        # Initially all nodes are incomplete
+        assert not parent.is_completed
 
-        # Change child state and verify parent updates
-        child.state = NodeState.IN_PROGRESS
-        assert parent.state == NodeState.IN_PROGRESS
+        # Complete all children
+        child1._completed = True
+        child1._notify_parent()
+        assert not parent.is_completed  # Not all children completed yet
 
-    def test_cancellation_propagation(self):
-        """Test that setting to CANCELLED propagates to children."""
+        child2._completed = True
+        child2._notify_parent()
+        assert parent.is_completed  # All children completed now
+
+    def test_blocked_propagation(self):
+        """Test that blocked state correctly propagates to parent."""
         parent = StatefulNode("Parent")
-        child1 = Task("Child 1", parent=parent)
-        child2 = Task("Child 2", parent=parent)
+        child1 = StatefulNode("Child 1", parent=parent)
+        StatefulNode("Child 2", parent=parent)
 
-        # Initially all OPEN
-        assert parent.state == NodeState.OPEN
-        assert child1.state == NodeState.OPEN
-        assert child2.state == NodeState.OPEN
+        # Block one child
+        child1._blocked = True
+        child1._notify_parent()
 
-        # Cancel the parent
-        parent.state = NodeState.CANCELLED
+        # Parent should be blocked if any child is blocked
+        assert parent.is_blocked
 
-        # All children should be cancelled
-        assert child1.state == NodeState.CANCELLED
-        assert child2.state == NodeState.CANCELLED
+        # Unblock the child
+        child1._blocked = False
+        child1._notify_parent()
+        assert not parent.is_blocked
 
-    def test_is_resolved(self):
-        """Test the is_resolved helper method."""
-        node = StatefulNode("Test Node")
-
-        # Open node is not resolved
-        assert node.is_resolved() is False
-
-        # Blocked node is not resolved
-        node.state = NodeState.BLOCKED
-        assert node.is_resolved() is False
-
-        # In-progress node is not resolved
-        node.state = NodeState.IN_PROGRESS
-        assert node.is_resolved() is False
-
-        # Completed node is resolved
-        node.state = NodeState.COMPLETED
-        assert node.is_resolved() is True
-
-        # Cancelled node is resolved
-        node.state = NodeState.CANCELLED
-        assert node.is_resolved() is True
-
-    def test_can_complete_leaf(self):
-        """Test can_complete for leaf nodes."""
-        node = StatefulNode("Leaf Node")
-
-        # Open node can be completed
-        assert node.state == NodeState.OPEN
-        assert node.can_complete() is True
-
-        # In-progress node can be completed
-        node.state = NodeState.IN_PROGRESS
-        assert node.can_complete() is True
-
-        # Blocked node can be completed
-        node.state = NodeState.BLOCKED
-        assert node.can_complete() is True
-
-        # Completed node cannot be completed again
-        node.state = NodeState.COMPLETED
-        assert node.can_complete() is False
-
-        # Cancelled node cannot be completed
-        node.state = NodeState.CANCELLED
-        assert node.can_complete() is False
-
-    def test_can_complete_parent(self):
-        """Test can_complete for parent nodes with Task children."""
+    def test_post_attach_recomputation_completed(self):
+        """Test state recomputation after attaching/detaching children."""
         parent = StatefulNode("Parent")
-        Task("Child 1", parent=parent, state=NodeState.OPEN)
-        Task("Child 2", parent=parent, state=NodeState.IN_PROGRESS)
+        child1 = StatefulNode("Child 1", completed=True)
+        child2 = StatefulNode("Child 2", completed=True)
 
-        # Force parent state recomputation
-        parent._recompute_state()
+        assert not parent.is_completed
 
-        # Parent with unresolved children cannot be completed
-        assert parent.can_complete() is False
+        # Attach completed children
+        parent.children = [child1, child2]
+        assert parent.is_completed
 
-        # Modify children to be resolved
-        for child in parent.children:
-            if isinstance(child, Task):
-                child.state = NodeState.COMPLETED
+    def test_post_detach_recomputation_blocked(self, mocker):
+        """Test state recomputation after attaching/detaching children."""
 
-        # Now parent should be completable
-        assert parent.can_complete() is True
+        class ParentNode(StatefulNode):
+            pass
 
-    def test_add_and_remove_child(self):
-        """Test adding and removing children with state recomputation."""
-        parent = StatefulNode("Parent")
-        child1 = Task("Child 1", state=NodeState.BLOCKED)
+        spy = mocker.spy(ParentNode, "_recompute_state")
 
-        # Initially parent is OPEN
-        assert parent.state == NodeState.OPEN
+        parent = ParentNode("Parent")
+        assert spy.call_count == 0
+        assert not parent.is_completed
+        assert not parent.is_blocked
 
-        # Add child and verify state propagation
-        parent.add_child(child1)
-        assert parent.state == NodeState.BLOCKED
+        child = StatefulNode("Child 1", parent=parent, blocked=True)
+        assert spy.call_count == 1
+        assert not parent.is_completed
+        assert parent.is_blocked
 
-        # Currently the parent is still BLOCKED because it became a leaf and leaves don't calculate their state
-        parent.remove_child(child1)
-        assert parent.state == NodeState.BLOCKED
+        # Detach child
+        child.parent = None
+        assert spy.call_count > 1
+        assert not parent.is_completed
 
-    def test_leaf_vs_parent_recomputation(self):
-        """Test that leaf nodes don't recompute state."""
-        # Create a stateful node
-        node = StatefulNode("Test Node")
+        # parent is a leaf, but StatefulNode does not change its state, it remains blocked
+        assert parent.is_blocked
 
-        # Should be a leaf node
-        assert node.is_leaf is True
+    def test_complex_state_propagation(self):
+        """Test state propagation in a complex tree."""
+        root = StatefulNode("Root")
+        branch1 = StatefulNode("Branch 1", parent=root)
+        branch2 = StatefulNode("Branch 2", parent=root)
 
-        # Manually set the state
-        node._state = NodeState.IN_PROGRESS
+        leaf1 = StatefulNode("Leaf 1", parent=branch1)
+        leaf2 = StatefulNode("Leaf 2", parent=branch1)
+        leaf3 = StatefulNode("Leaf 3", parent=branch2)
 
-        # Call _recompute_state - should not change anything for leaf nodes
-        node._recompute_state()
-        assert node.state == NodeState.IN_PROGRESS
+        # Initially nothing is completed
+        assert not root.is_completed
+
+        # Complete leaves in branch1
+        leaf1._completed = True
+        leaf1._notify_parent()
+        leaf2._completed = True
+        leaf2._notify_parent()
+
+        # Branch1 should now be completed but not root
+        assert branch1.is_completed
+        assert not root.is_completed
+
+        # Complete leaf in branch2
+        leaf3._completed = True
+        leaf3._notify_parent()
+
+        # Now root should be completed
+        assert root.is_completed
+
+        # Block one leaf
+        leaf2._blocked = True
+        leaf2._notify_parent()
+
+        # Branch1 and root should be blocked and not completed
+        assert branch1.is_blocked
+        assert not branch1.is_completed
+        assert root.is_blocked
+        assert not root.is_completed
