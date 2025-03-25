@@ -197,26 +197,18 @@ class StatefulNode(Node):
 
     def _post_detach(self, parent: Node):
         """Notify parent of detachment"""
-        print(f"Detaching {self.name} from {parent.name if parent else 'None'}")
         parent._recompute_state()
 
     def _post_attach(self, parent: Node):
         """Recompute state after attaching to parent."""
-        print(f"Attaching {self.name} to {parent.name if parent else 'None'}")
         parent._recompute_state()
 
     def _post_attach_children(self, children: list[Node]):
         """Recompute state after attaching children."""
-        print(
-            f"Attaching children to {self.name}: {[child.name for child in children]}"
-        )
         self._recompute_state()
 
     def _post_detach_children(self, children: list[Node]):
         """Recompute state after detaching children."""
-        print(
-            f"Detaching children to {self.name}: {[child.name for child in children]}"
-        )
         self._recompute_state()
 
 

@@ -7,7 +7,6 @@ from cannonball.nodes import (
     Answer,
     parse_markdown,
 )
-from cannonball.utils import walk_list_items
 import pytest
 
 

@@ -37,7 +37,7 @@ class TestStatefulNode:
 
         assert child.parent == parent
         assert child in parent.children
-        
+
     def test_repr_method(self):
         """Test the __repr__ method of StatefulNode."""
         node = StatefulNode("Test Node", completed=True, blocked=False)
