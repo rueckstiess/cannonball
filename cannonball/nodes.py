@@ -399,9 +399,7 @@ class Decision(StatefulNode):
         super().__init__(
             name, id, parent, children, completed=completed, blocked=blocked
         )
-
-        if self._auto_decide:
-            self._recompute_state()
+        self._recompute_state()
 
     def __str__(self):
         return f"[D] {self.name}"
