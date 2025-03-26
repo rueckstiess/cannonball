@@ -1,3 +1,8 @@
 [tool.ruff]
 # Ignore specific rules project-wide
 lint.ignore = ["E731"]  # Ignore lambda assignment warnings
+indent-width = 4
+line-length = 120
+extend-exclude = [
+    "__init__.py",
+]
