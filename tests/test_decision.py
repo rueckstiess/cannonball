@@ -17,6 +17,7 @@ class TestDecision:
         assert decision.is_blocked is True
         assert decision.name == "Decision"
         assert decision.parent is None
+        assert decision.marker == "D"
 
     def test_decision_str_representation(self):
         """Test the string representation of a Decision."""

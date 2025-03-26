@@ -15,6 +15,7 @@ class TestBullet:
         assert bullet.is_blocked is False
         assert bullet.is_leaf is True
         assert bullet._leaf_state() == (True, False)
+        assert bullet.marker is None
 
     def test_set_bullet_states(self):
         bullet = Bullet("Test Bullet")

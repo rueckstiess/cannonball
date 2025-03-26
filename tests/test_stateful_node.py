@@ -21,6 +21,18 @@ class TestStatefulNode:
             # Cannot have both completed and blocked states
             StatefulNode("Invalid Node", completed=True, blocked=True)
 
+    def test_init_with_marker(self):
+        """Test initializing a stateful node with a marker."""
+        node = StatefulNode("Test Node", marker="F")
+        assert node.marker == "F"
+        assert node.to_markdown() == "- [F] Test Node"
+
+    def test_init_without_marker(self):
+        """Test initializing a stateful node with a marker."""
+        node = StatefulNode("Test Node", marker=None)
+        assert node.marker is None
+        assert node.to_markdown() == "- Test Node"
+
     def test_add_parent_in_init(self):
         """Test adding a parent during initialization."""
         parent = StatefulNode("Parent Node")
