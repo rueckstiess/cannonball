@@ -122,15 +122,29 @@ class Node(NodeMixin):
             " ": (Task, False, False),
             "!": (Task, False, True),
             "x": (Task, True, False),
-            "D": (Decision, False, False),
-            "A": (Answer, True, False),
-            "?": (Question, False, False),
+            "d": (Decision, False, False),
+            "D": (Decision, True, False),
+            "$": (Decision, False, True),
+            "a": (Artefact, False, False),
+            "A": (Artefact, True, False),
+            "q": (Question, False, False),
+            "Q": (Question, True, False),
+            "?": (Question, False, True),
             "P": (Problem, False, True),
+            "g": (Goal, False, False),
+            "G": (Goal, True, False),
+            "~": (Goal, False, True),
+            "e": (Experiment, False, False),
+            "E": (Experiment, True, False),
+            "%": (Experiment, False, True),
         }
 
         # Get class and state, with fallback to default open, unblocked StatefulNode if not found
         cls, completed, blocked = MD_MARKER_TO_NODE.get(marker, (StatefulNode, False, False))
-        node = cls(content, id, completed=completed, blocked=blocked, **kwargs)
+        if cls == StatefulNode:
+            node = StatefulNode(content, id, completed=completed, blocked=blocked, marker=marker, **kwargs)
+        else:
+            node = cls(content, id, completed=completed, blocked=blocked, **kwargs)
         return node
 
     def find_by_name(self, prefix: str) -> Optional["Node"]:
@@ -430,7 +444,6 @@ class Decision(StatefulNode):
 
         super().__init__(name, id, parent, children, completed=completed, blocked=blocked, **kwargs)
 
-        self._marker = "D"
         self._recompute_state()
 
     @property
@@ -442,6 +455,15 @@ class Decision(StatefulNode):
     def is_decided(self) -> bool:
         """Check if the decision has been made."""
         return self._decision is not None
+
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "$"
+        if self._completed:
+            return "D"
+        return "d"
 
     @property
     def auto_decide(self) -> bool:
@@ -544,15 +566,49 @@ class Decision(StatefulNode):
 
 # TODO stubs so that the tests pass
 class Question(StatefulNode):
-    _marker = "?"
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "?"
+        if self._completed:
+            return "Q"
+        return "q"
 
 
-class Answer(StatefulNode):
-    _marker = "A"
+class Artefact(StatefulNode):
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._completed:
+            return "A"
+        return "a"
 
 
 class Problem(StatefulNode):
-    _marker = "P"
+    marker = "P"
+
+
+class Experiment(StatefulNode):
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "%"
+        if self._completed:
+            return "E"
+        return "e"
+
+
+class Goal(StatefulNode):
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "~"
+        if self._completed:
+            return "G"
+        return "g"
 
 
 # class Answer(StatefulNode):

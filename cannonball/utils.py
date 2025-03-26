@@ -119,11 +119,11 @@ def extract_str_content(text: str) -> str:
         text = re.sub(r"^\s*\[" + re.escape(marker) + r"\]\s*", "", text)
 
     # Remove references (^ref)
-    if ref is not None:
-        text = re.sub(r"\s*\^" + re.escape(ref) + r"\b", "", text)
+    # if ref is not None:
+    #     text = re.sub(r"\s*\^" + re.escape(ref) + r"\b", "", text)
 
     # Remove reference links ([[#^ref]])
-    text = re.sub(r"\[\[#\^[^\]]+\]\]", "", text)
+    # text = re.sub(r"\[\[#\^[^\]]+\]\]", "", text)
 
     # Trim any extra whitespace
     text = text.strip()

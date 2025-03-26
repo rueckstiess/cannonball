@@ -4,7 +4,7 @@ from cannonball.nodes import (
     Bullet,
     Decision,
     Question,
-    Answer,
+    Artefact,
     parse_markdown,
 )
 import pytest
@@ -51,7 +51,7 @@ class TestParseMarkdown:
         """
         root = parse_markdown(markdown)
         assert isinstance(root, Task)
-        assert root.name == "Blocked task with refs"
+        assert root.name == "Blocked task with refs ^123 [[#^ref1]] [[#^ref2]]"
         assert root.is_blocked
 
     def test_multiple_roots(self):
@@ -87,7 +87,7 @@ class TestParseMarkdown:
             - Bullet
             - [?] Question
                 - [D] Decision
-                - [A] Answer
+                - [A] Artefact
         """
         root = parse_markdown(markdown)
 
@@ -112,9 +112,9 @@ class TestParseMarkdown:
         assert isinstance(decision, Decision)
         assert decision.name == "Decision"
 
-        answer = question.children[1]
-        assert isinstance(answer, Answer)
-        assert answer.name == "Answer"
+        artefact = question.children[1]
+        assert isinstance(artefact, Artefact)
+        assert artefact.name == "Artefact"
 
 
 class TestMarkdown:

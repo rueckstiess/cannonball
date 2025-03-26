@@ -188,19 +188,19 @@ class TestExtractStrContent:
         """Test extracting content with a reference."""
         text = "- Task 3 ^ref123"
         content = extract_str_content(text)
-        assert content == "Task 3"
+        assert content == "Task 3 ^ref123"
 
     def test_extract_str_content_with_marker_and_ref(self):
         """Test extracting content with both marker and reference."""
         text = "- [D] Task 4 ^ref123"
         content = extract_str_content(text)
-        assert content == "Task 4"
+        assert content == "Task 4 ^ref123"
 
     def test_extract_str_content_with_ref_links(self):
         """Test extracting content with reference links."""
         text = "- [?] Task 5 [[#^ref123]]"
         content = extract_str_content(text)
-        assert content == "Task 5"
+        assert content == "Task 5 [[#^ref123]]"
 
 
 class TestPrintAst:
