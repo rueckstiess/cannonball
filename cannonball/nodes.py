@@ -12,9 +12,7 @@ from .utils import (
 import uuid
 
 
-def parse_markdown(
-    content: str, auto_resolve: bool = True, auto_decide: bool = False
-) -> "Node":
+def parse_markdown(content: str, auto_resolve: bool = True, auto_decide: bool = False) -> "Node":
     """Parse a markdown string into a Nodes tree.
 
     Args:
@@ -70,9 +68,7 @@ def parse_markdown(
 class Node(NodeMixin):
     """Base node class for all tree nodes in the productivity system."""
 
-    def __init__(
-        self, name: str, id: Optional[str] = None, parent=None, children=None, **kwargs
-    ):
+    def __init__(self, name: str, id: Optional[str] = None, parent=None, children=None, **kwargs):
         self.name = name
         self.id = id
         self.parent = parent
@@ -83,9 +79,7 @@ class Node(NodeMixin):
         return f"{self.__class__.__name__}({self.name})"
 
     @staticmethod
-    def from_contents(
-        id: str, content: str, marker: Optional[str] = None, **kwargs
-    ) -> "Node":
+    def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
         """Create a node from contents."""
 
         # Values are tuples of (node class, done, blocked)
@@ -101,9 +95,7 @@ class Node(NodeMixin):
         }
 
         # Get class and state, with fallback to default open, unblocked StatefulNode if not found
-        cls, completed, blocked = MD_MARKER_TO_NODE.get(
-            marker, (StatefulNode, False, False)
-        )
+        cls, completed, blocked = MD_MARKER_TO_NODE.get(marker, (StatefulNode, False, False))
         node = cls(content, id, completed=completed, blocked=blocked, **kwargs)
         return node
 
@@ -171,19 +163,13 @@ class StatefulNode(Node):
             is_completed, is_blocked = self._leaf_state()
         else:
             # by default, a node is blocked if any of its children are blocked
-            is_blocked = any(
-                isinstance(child, StatefulNode) and child.is_blocked
-                for child in children
-            )
+            is_blocked = any(isinstance(child, StatefulNode) and child.is_blocked for child in children)
 
             # a node is completed if it is not blocked and all its children are completed
             is_completed = (
                 False
                 if is_blocked
-                else all(
-                    isinstance(child, StatefulNode) and child.is_completed
-                    for child in children
-                )
+                else all(isinstance(child, StatefulNode) and child.is_completed for child in children)
             )
 
         # if any state changed, update the state and optionally notify the parent
@@ -226,13 +212,9 @@ class Bullet(StatefulNode):
         **kwargs,  # for API compatibility
     ):
         # Leaf bullets are completed and not blocked
-        kwargs.pop(
-            "completed", None
-        )  # The None is the default value if key doesn't exist
+        kwargs.pop("completed", None)  # The None is the default value if key doesn't exist
         kwargs.pop("blocked", None)
-        super().__init__(
-            name, id, parent, children, completed=True, blocked=False, **kwargs
-        )
+        super().__init__(name, id, parent, children, completed=True, blocked=False, **kwargs)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -257,9 +239,7 @@ class Task(StatefulNode):
         auto_resolve: bool = True,
         **kwargs,
     ):
-        super().__init__(
-            name, id, parent, children, completed=completed, blocked=blocked
-        )
+        super().__init__(name, id, parent, children, completed=completed, blocked=blocked)
 
         self._auto_resolve: bool = auto_resolve
 
@@ -396,12 +376,8 @@ class Decision(StatefulNode):
         self._options = options
         self._auto_decide = auto_decide
 
-        super().__init__(
-            name, id, parent, children, completed=completed, blocked=blocked
-        )
-
-        if self._auto_decide:
-            self._recompute_state()
+        super().__init__(name, id, parent, children, completed=completed, blocked=blocked)
+        self._recompute_state()
 
     def __str__(self):
         return f"[D] {self.name}"

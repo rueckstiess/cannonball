@@ -14,7 +14,7 @@ class TestDecision:
         assert isinstance(decision, Decision)
         assert decision.auto_decide is False
         assert decision.is_completed is False
-        assert decision.is_blocked is False
+        assert decision.is_blocked is True
         assert decision.name == "Decision"
         assert decision.parent is None
 
@@ -33,8 +33,11 @@ class TestDecision:
     def test_decision_init_completed(self):
         decision = Decision("Decision", completed=True)
         assert decision.auto_decide is False
-        assert decision.is_completed is True
-        assert decision.is_blocked is False
+        # A decision without options is blocked and not completed
+        assert decision.is_completed is False
+        assert decision.is_blocked is True
+        assert decision.decision is None
+        assert decision.is_decided is False
 
     def test_decision_init_auto_decide(self):
         decision = Decision("Decision", auto_decide=True)
@@ -391,8 +394,27 @@ class TestDecisionFixtures:
         assert decision.is_completed is False
 
 
+@pytest.fixture()
+def bullet_with_options():
+    return parse_markdown("""
+            - Bullet
+                - [ ] Option 1
+                - [ ] Option 2
+            """)
+
+
+@pytest.fixture()
+def task_decision_tree():
+    return parse_markdown("""
+        - [ ] Task
+            - [D] Decision
+            - [ ] Option A
+            - [ ] Option B
+        """)
+
+
 class TestDecisionWithOtherOptions:
-    def test_decision_with_task(self, decision_with_task):
+    def test_decision_with_task(self, decision_with_task, bullet_with_options):
         decision = decision_with_task
         task = decision.find_by_name("Task")
 
@@ -401,13 +423,6 @@ class TestDecisionWithOtherOptions:
         assert decision.is_completed is True
         assert decision.is_blocked is False
         assert decision.decision == task
-
-        # now change to different options
-        bullet_with_options = parse_markdown("""
-            - Bullet
-                - [ ] Option 1
-                - [ ] Option 2
-            """)
 
         decision.set_options(bullet_with_options.children)
 
@@ -433,3 +448,26 @@ class TestDecisionWithOtherOptions:
         assert len(all_options) == 2
         assert option1 in all_options
         assert option2 in all_options
+
+    def test_task_decision_tree(self, task_decision_tree):
+        task = task_decision_tree
+        decision = task.find_by_name("Decision")
+        assert isinstance(decision, Decision)
+        assert decision.auto_decide is False
+        assert decision.is_completed is False
+        assert decision.is_blocked is True
+        assert decision.decision is None
+
+        # task is also blocked because of blocked decision
+        assert task.is_blocked is True
+
+        option_a = task.find_by_name("Option A")
+        option_b = task.find_by_name("Option B")
+
+        # set options
+        decision.set_options([option_a, option_b])
+        assert decision.is_completed is False
+        assert decision.is_blocked is False
+        assert decision.decision is None
+        assert decision.get_options() == [option_a, option_b]
+        assert task.is_blocked is False
