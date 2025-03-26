@@ -78,6 +78,40 @@ class Node(NodeMixin):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
+    def to_markdown(self, indent: int | str = 4) -> str:
+        """Convert the node and its children to a markdown string.
+
+        Args:
+            indent: Number of spaces for each indentation level, or a string to use for indentation.
+
+        Returns:
+            str: Markdown representation of the node and its descendants.
+        """
+        # Determine the indentation string
+        if isinstance(indent, int):
+            indent_str = " " * indent
+        else:
+            indent_str = indent
+
+        # Start with an empty list to store markdown lines
+        result = []
+
+        # Use depth-first traversal to build the markdown representation
+        def _build_markdown(node, level=0):
+            # Add the current node
+            current_indent = indent_str * level
+            result.append(f"{current_indent}- {str(node)}")
+
+            # Add all children recursively
+            for child in node.children:
+                _build_markdown(child, level + 1)
+
+        # Start the recursive generation from this node
+        _build_markdown(self)
+
+        # Join all lines into a single string
+        return "\n".join(result)
+
     @staticmethod
     def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
         """Create a node from contents."""
@@ -88,15 +122,29 @@ class Node(NodeMixin):
             " ": (Task, False, False),
             "!": (Task, False, True),
             "x": (Task, True, False),
-            "D": (Decision, False, False),
-            "A": (Answer, True, False),
-            "?": (Question, False, False),
+            "d": (Decision, False, False),
+            "D": (Decision, True, False),
+            "$": (Decision, False, True),
+            "a": (Artefact, False, False),
+            "A": (Artefact, True, False),
+            "q": (Question, False, False),
+            "Q": (Question, True, False),
+            "?": (Question, False, True),
             "P": (Problem, False, True),
+            "g": (Goal, False, False),
+            "G": (Goal, True, False),
+            "~": (Goal, False, True),
+            "e": (Experiment, False, False),
+            "E": (Experiment, True, False),
+            "%": (Experiment, False, True),
         }
 
         # Get class and state, with fallback to default open, unblocked StatefulNode if not found
         cls, completed, blocked = MD_MARKER_TO_NODE.get(marker, (StatefulNode, False, False))
-        node = cls(content, id, completed=completed, blocked=blocked, **kwargs)
+        if cls == StatefulNode:
+            node = StatefulNode(content, id, completed=completed, blocked=blocked, marker=marker, **kwargs)
+        else:
+            node = cls(content, id, completed=completed, blocked=blocked, **kwargs)
         return node
 
     def find_by_name(self, prefix: str) -> Optional["Node"]:
@@ -115,6 +163,7 @@ class StatefulNode(Node):
         children: Optional[list[Node]] = None,
         completed: bool = False,
         blocked: bool = False,
+        marker: Optional[str] = None,
         **kwargs,
     ):
         if blocked and completed:
@@ -122,6 +171,7 @@ class StatefulNode(Node):
 
         self._blocked = blocked
         self._completed = completed
+        self._marker = marker
         super().__init__(name, id, parent, children)
 
     @property
@@ -132,8 +182,18 @@ class StatefulNode(Node):
     def is_blocked(self) -> bool:
         return self._blocked
 
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        return self._marker
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name}, completed={self._completed}, blocked={self._blocked})"
+
+    def __str__(self):
+        if self.marker:
+            return f"[{self.marker}] {self.name}"
+        return f"{self.name}"
 
     def _notify_parent(self):
         """Notify parent of state change to trigger state recomputation."""
@@ -214,13 +274,10 @@ class Bullet(StatefulNode):
         # Leaf bullets are completed and not blocked
         kwargs.pop("completed", None)  # The None is the default value if key doesn't exist
         kwargs.pop("blocked", None)
-        super().__init__(name, id, parent, children, completed=True, blocked=False, **kwargs)
+        super().__init__(name, id, parent, children, completed=True, blocked=False, marker=None, **kwargs)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
-
-    def __str__(self):
-        return f"{self.name}"
 
     def _leaf_state(self) -> Tuple[bool, bool]:
         """Leaf Bullets are always completed and not blocked."""
@@ -239,13 +296,22 @@ class Task(StatefulNode):
         auto_resolve: bool = True,
         **kwargs,
     ):
-        super().__init__(name, id, parent, children, completed=completed, blocked=blocked)
+        super().__init__(name, id, parent, children, completed=completed, blocked=blocked, **kwargs)
 
         self._auto_resolve: bool = auto_resolve
 
     @property
     def auto_resolve(self) -> bool:
         return self._auto_resolve
+
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "!"
+        if self._completed:
+            return "x"
+        return " "
 
     @auto_resolve.setter
     def auto_resolve(self, value: bool):
@@ -376,11 +442,9 @@ class Decision(StatefulNode):
         self._options = options
         self._auto_decide = auto_decide
 
-        super().__init__(name, id, parent, children, completed=completed, blocked=blocked)
-        self._recompute_state()
+        super().__init__(name, id, parent, children, completed=completed, blocked=blocked, **kwargs)
 
-    def __str__(self):
-        return f"[D] {self.name}"
+        self._recompute_state()
 
     @property
     def decision(self) -> Optional[Node]:
@@ -391,6 +455,15 @@ class Decision(StatefulNode):
     def is_decided(self) -> bool:
         """Check if the decision has been made."""
         return self._decision is not None
+
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "$"
+        if self._completed:
+            return "D"
+        return "d"
 
     @property
     def auto_decide(self) -> bool:
@@ -493,15 +566,49 @@ class Decision(StatefulNode):
 
 # TODO stubs so that the tests pass
 class Question(StatefulNode):
-    pass
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "?"
+        if self._completed:
+            return "Q"
+        return "q"
 
 
-class Answer(StatefulNode):
-    pass
+class Artefact(StatefulNode):
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._completed:
+            return "A"
+        return "a"
 
 
 class Problem(StatefulNode):
-    pass
+    marker = "P"
+
+
+class Experiment(StatefulNode):
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "%"
+        if self._completed:
+            return "E"
+        return "e"
+
+
+class Goal(StatefulNode):
+    @property
+    def marker(self) -> str:
+        """Get the marker for the node."""
+        if self._blocked:
+            return "~"
+        if self._completed:
+            return "G"
+        return "g"
 
 
 # class Answer(StatefulNode):

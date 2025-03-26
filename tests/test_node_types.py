@@ -1,7 +1,7 @@
 from cannonball.nodes import (
     Node,
     Bullet,
-    Answer,
+    Artefact,
     Question,
     Decision,
     Task,
@@ -72,8 +72,8 @@ class TestNode:
 
     def test_from_contents_answer(self):
         """Test creating an Answer from contents."""
-        node = Node.from_contents(id="123", content="Test answer", marker="A")
-        assert isinstance(node, Answer)
+        node = Node.from_contents(id="123", content="Test artefact", marker="A")
+        assert isinstance(node, Artefact)
         assert node.is_completed is True
 
     def test_from_contents_unknown_marker(self):

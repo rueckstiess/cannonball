@@ -133,18 +133,21 @@ class TestTask:
         assert task.auto_resolve is True
         assert task.name == "Task"
         assert task.parent is None
+        assert task.marker == " "
 
     def test_completed_task_init(self):
         task = Task("Task", completed=True)
         assert isinstance(task, Task)
         assert task.is_blocked is False
         assert task.is_completed is True
+        assert task.marker == "x"
 
     def test_blocked_task_init(self):
         task = Task("Task", blocked=True)
         assert isinstance(task, Task)
         assert task.is_blocked is True
         assert task.is_completed is False
+        assert task.marker == "!"
 
     def test_task_with_children(self):
         task = Task("Task")

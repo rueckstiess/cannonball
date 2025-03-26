@@ -17,12 +17,13 @@ class TestDecision:
         assert decision.is_blocked is True
         assert decision.name == "Decision"
         assert decision.parent is None
+        assert decision.marker == "$"
 
     def test_decision_str_representation(self):
         """Test the string representation of a Decision."""
         decision = Decision("Test Decision")
         str_repr = str(decision)
-        assert str_repr == "[D] Test Decision"
+        assert str_repr == "[$] Test Decision"
 
     def test_decision_init_blocked(self):
         decision = Decision("Decision", blocked=True)
