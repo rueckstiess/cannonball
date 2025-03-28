@@ -1,11 +1,9 @@
-from cannonball.nodes import (
-    Task,
-)
+from cannonball import Task
 
 
 # @pytest.fixture()
 # def single_task():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - [ ] Task
 #         """)
 
@@ -20,7 +18,7 @@ from cannonball.nodes import (
 
 # @pytest.fixture()
 # def task_with_decision():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - [ ] Task
 #             - [D] Decision
 #         """)
@@ -28,7 +26,7 @@ from cannonball.nodes import (
 
 # @pytest.fixture()
 # def task_with_decision_and_subtasks():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - [ ] Task
 #             - [D] Decision
 #                 - [ ] Option 1
@@ -102,7 +100,7 @@ from cannonball.nodes import (
 
 # @pytest.fixture()
 # def task_with_bullet():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - [ ] Task
 #             - Bullet
 #         """)

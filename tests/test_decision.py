@@ -1,10 +1,4 @@
-from cannonball.nodes import (
-    Node,
-    Task,
-    Decision,
-    Bullet,
-    parse_markdown,
-)
+from cannonball import Node, Task, Decision, Bullet
 import pytest
 
 
@@ -93,14 +87,14 @@ class TestDecision:
 
 @pytest.fixture()
 def decision():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [D] Decision
         """)
 
 
 @pytest.fixture()
 def decision_with_bullet():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [D] Decision
             - I'm the only option
         """)
@@ -108,7 +102,7 @@ def decision_with_bullet():
 
 @pytest.fixture()
 def decision_with_2_bullets():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [D] Decision
             - I need to make a decision here
             - Another bullet
@@ -117,7 +111,7 @@ def decision_with_2_bullets():
 
 @pytest.fixture()
 def decision_with_task():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [D] Decision
             - [ ] Task
         """)
@@ -125,7 +119,7 @@ def decision_with_task():
 
 @pytest.fixture()
 def decision_with_tasks():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [D] Decision
             - [ ] Task 1
             - [ ] Task 2
@@ -135,7 +129,7 @@ def decision_with_tasks():
 
 @pytest.fixture()
 def nested_decisions():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [D] Decision
             - [ ] Option A
             - [D] Nested Decision
@@ -397,7 +391,7 @@ class TestDecisionFixtures:
 
 @pytest.fixture()
 def bullet_with_options():
-    return parse_markdown("""
+    return Node.from_markdown("""
             - Bullet
                 - [ ] Option 1
                 - [ ] Option 2
@@ -406,7 +400,7 @@ def bullet_with_options():
 
 @pytest.fixture()
 def task_decision_tree():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [ ] Task
             - [D] Decision
             - [ ] Option A

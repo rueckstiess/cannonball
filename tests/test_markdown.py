@@ -1,18 +1,10 @@
-from cannonball.nodes import (
-    StatefulNode,
-    Task,
-    Bullet,
-    Decision,
-    Question,
-    Artefact,
-    parse_markdown,
-)
+from cannonball import Node, Task, Bullet, Decision, Question, Artefact
 import pytest
 
 
 @pytest.fixture(scope="class")
 def task_with_2_subtasks():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - [ ] Task 1
             - [ ] Task 2
             - [x] Task 3
@@ -21,7 +13,7 @@ def task_with_2_subtasks():
 
 @pytest.fixture(scope="class")
 def nested_task_with_bullets():
-    return parse_markdown(
+    return Node.from_markdown(
         """
         - [ ] Task 1
             - [ ] Task 2
@@ -36,20 +28,20 @@ def nested_task_with_bullets():
 class TestParseMarkdown:
     def test_empty_markdown(self):
         """Test parsing empty markdown."""
-        result = parse_markdown("")
+        result = Node.from_markdown("")
         assert result is None
 
     def test_no_list_markdown(self):
         """Test parsing markdown with no list items."""
-        result = parse_markdown("This is just text")
+        result = Node.from_markdown("This is just text")
         assert result is None
 
-    def test_parse_markdown_converts_node_correctly(self):
-        """Test that parse_markdown converts list items to nodes correctly and handles multiple references."""
+    def test_from_markdown_converts_node_correctly(self):
+        """Test that Node.from_markdown converts list items to nodes correctly and handles multiple references."""
         markdown = """
         - [!] Blocked task with refs ^123 [[#^ref1]] [[#^ref2]]
         """
-        root = parse_markdown(markdown)
+        root = Node.from_markdown(markdown)
         assert isinstance(root, Task)
         assert root.name == "Blocked task with refs ^123 [[#^ref1]] [[#^ref2]]"
         assert root.is_blocked
@@ -61,11 +53,10 @@ class TestParseMarkdown:
         
         - Root 2
         """
-        root = parse_markdown(markdown)
-        assert root.name == "Root"
-        assert len(root.children) == 2
-        assert root.children[0].name == "Root 1"
-        assert root.children[1].name == "Root 2"
+        roots = Node.from_markdown(markdown)
+        assert len(roots) == 2
+        assert roots[0].name == "Root 1"
+        assert roots[1].name == "Root 2"
 
     def test_simple_bullet_list(self):
         """Test parsing a simple bullet list."""
@@ -73,12 +64,11 @@ class TestParseMarkdown:
         - Item 1
         - Item 2
         """
-        root = parse_markdown(markdown)
+        roots = Node.from_markdown(markdown)
 
-        assert isinstance(root, StatefulNode)
-        # Root node was added
-        assert root.name == "Root"
-        assert len(root.children) == 2
+        assert isinstance(roots, list)
+        assert roots
+        assert len(roots) == 2
 
     def test_mixed_node_types(self):
         """Test parsing mixed node types."""
@@ -89,7 +79,7 @@ class TestParseMarkdown:
                 - [D] Decision
                 - [A] Artefact
         """
-        root = parse_markdown(markdown)
+        root = Node.from_markdown(markdown)
 
         # With the current implementation, we expect the root to be the Answer
         assert isinstance(root, Task)
