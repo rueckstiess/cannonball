@@ -4,7 +4,7 @@ from marko import Markdown
 from marko.block import List
 from marko.md_renderer import MarkdownRenderer
 
-from cannonball.node import Node
+from cannonball import Node
 from cannonball.utils import walk_list_items
 
 

@@ -6,6 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "anytree>=2.12.1",
+        "ell-ai>=0.0.17",
         "pymongo>=4.5.0",
         "marko>=2.1.2",
         "pytest>=7.3.1",

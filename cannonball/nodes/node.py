@@ -79,8 +79,12 @@ class Node(NodeMixin):
         """
         cls._node_registry[marker] = (node_class, completed, blocked)
 
-    def _update_list_items(self):
-        """Update the list item with the current node's attributes, ignoring its children"""
+    def _update_list_item(self, recursive: bool = False):
+        """Update the list item with the current node's attributes.
+
+        Args:
+            recursive: Whether to update list items for all children
+        """
 
         # find the RawText node in the list item (inside Paragraph)
         # and update its text with the current node's attributes
@@ -93,8 +97,77 @@ class Node(NodeMixin):
                 # If no paragraph or raw text found, do nothing
                 pass
         # Recursively update list items for all children
-        for child in self.children:
-            child._update_list_items()
+        if recursive:
+            for child in self.children:
+                child._update_list_item(recursive=True)
+
+    @classmethod
+    def from_list_item(cls, list_item: ListItem, **kwargs) -> "Node":
+        """Create a node from a ListItem."""
+        if list_item is None:
+            return None
+
+        text = get_raw_text_from_listtem(list_item)
+        marker, ref, ref_links = extract_node_marker_and_refs(text)
+        content = extract_str_content(text)
+        node_id = str(uuid.uuid4())[:8]
+
+        # Get class and state from registry with fallback to Node
+        node_class, completed, blocked = cls._node_registry.get(marker, (Node, False, False))
+        node = node_class(content, node_id, completed=completed, blocked=blocked, list_item=list_item, **kwargs)
+        return node
+
+    @classmethod
+    def from_markdown(cls, content: str, **kwargs) -> Union["Node", list["Node"]]:
+        """Create a node tree from a markdown string."""
+
+        parser = Markdown()
+        ast = parser.parse(dedent(content.strip("\n")))
+
+        item_to_node = {}
+
+        for li, parent_li, _ in walk_list_items(ast):
+            if li in item_to_node:
+                node = item_to_node[li]
+            else:
+                node = cls.from_list_item(li, **kwargs)
+                item_to_node[li] = node
+
+            # this must already exist since we're parsing a tree
+            parent = item_to_node[parent_li] if parent_li else None
+
+            if parent:
+                node.parent = parent
+
+        roots = [node for node in item_to_node.values() if node.is_root]
+
+        # return None if no roots found, a single root node if only one root, or a list of roots
+        if len(roots) == 0:
+            return None
+        if len(roots) == 1:
+            return roots[0]
+        return roots
+
+    @classmethod
+    def from_contents(
+        cls, node_id: str, content: str, marker: Optional[str] = None, list_item: Optional[ListItem] = None, **kwargs
+    ) -> "Node":
+        """Create a node from contents."""
+
+        # Get class and state from registry with fallback to Node
+        node_class, completed, blocked = cls._node_registry.get(marker, (Node, False, False))
+        node = node_class(content, node_id, completed=completed, blocked=blocked, list_item=list_item, **kwargs)
+        return node
+
+    def to_list_item(self) -> ListItem:
+        """Convert the node to a ListItem."""
+        # Create a new ListItem with the current node's attributes
+        if self.list_item:
+            # If list_item already exists, update it
+            self._update_list_item()
+            return self.list_item
+
+        # create a new list item with a Paragraph, which contains a RawText
 
     def to_markdown(self, indent: int | str = 4) -> str:
         """Convert the node and its children to a markdown string.
@@ -129,64 +202,6 @@ class Node(NodeMixin):
 
         # Join all lines into a single string
         return "\n".join(result)
-
-    @classmethod
-    def from_markdown(cls, content: str, **kwargs) -> Union["Node", list["Node"]]:
-        """Create a node tree from a markdown string."""
-
-        parser = Markdown()
-        ast = parser.parse(dedent(content.strip("\n")))
-
-        item_to_node = {}
-
-        for li, parent_li, _ in walk_list_items(ast):
-            if li in item_to_node:
-                node = item_to_node[li]
-            else:
-                node = cls.from_list_item(li, **kwargs)
-                item_to_node[li] = node
-
-            # this must already exist since we're parsing a tree
-            parent = item_to_node[parent_li] if parent_li else None
-
-            if parent:
-                node.parent = parent
-
-        roots = [node for node in item_to_node.values() if node.is_root]
-
-        # return None if no roots found, a single root node if only one root, or a list of roots
-        if len(roots) == 0:
-            return None
-        if len(roots) == 1:
-            return roots[0]
-        return roots
-
-    @classmethod
-    def from_list_item(cls, list_item: ListItem, **kwargs) -> "Node":
-        """Create a node from a ListItem."""
-        if list_item is None:
-            return None
-
-        text = get_raw_text_from_listtem(list_item)
-        marker, ref, ref_links = extract_node_marker_and_refs(text)
-        content = extract_str_content(text)
-        node_id = str(uuid.uuid4())[:8]
-
-        # Get class and state from registry with fallback to Node
-        node_class, completed, blocked = cls._node_registry.get(marker, (Node, False, False))
-        node = node_class(content, node_id, completed=completed, blocked=blocked, list_item=list_item, **kwargs)
-        return node
-
-    @classmethod
-    def from_contents(
-        cls, node_id: str, content: str, marker: Optional[str] = None, list_item: Optional[ListItem] = None, **kwargs
-    ) -> "Node":
-        """Create a node from contents."""
-
-        # Get class and state from registry with fallback to Node
-        node_class, completed, blocked = cls._node_registry.get(marker, (Node, False, False))
-        node = node_class(content, node_id, completed=completed, blocked=blocked, list_item=list_item, **kwargs)
-        return node
 
     def find_by_name(self, prefix: str) -> Optional["Node"]:
         """Find a child node by its name or prefix of a name."""
