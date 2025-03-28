@@ -1,7 +1,6 @@
 # Version information
 __version__ = "0.0.1"
 
-from .utils import parse_markdown
 from .bullet import Bullet
 from .problem import Problem
 from .question import Question

@@ -1,4 +1,4 @@
-from cannonball import Node, Bullet, parse_markdown
+from cannonball import Node, Bullet
 import pytest
 
 
@@ -81,14 +81,14 @@ class TestBullet:
 
 @pytest.fixture()
 def bullet():
-    return parse_markdown("""
+    return Node.from_markdown("""
         - Bullet
         """)
 
 
 # @pytest.fixture()
 # def bullet_with_child():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - Bullet
 #             - Nested bullet
 #         """)
@@ -96,7 +96,7 @@ def bullet():
 
 # @pytest.fixture()
 # def bullet_with_task():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - Bullet
 #             - [ ] Task
 #         """)
@@ -104,7 +104,7 @@ def bullet():
 
 # @pytest.fixture()
 # def bullet_with_decision():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - Bullet
 #             - [D] Decision
 #         """)
@@ -112,7 +112,7 @@ def bullet():
 
 # @pytest.fixture()
 # def deep_bullet_with_task():
-#     return parse_markdown("""
+#     return Node.from_markdown("""
 #         - Bullet 1
 #             - Bullet 2
 #                 - Bullet 3

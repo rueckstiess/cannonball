@@ -27,50 +27,50 @@ class TestNode:
 
     def test_from_contents_bullet(self):
         """Test creating a Bullet node from contents."""
-        node = Node.from_contents(id="123", content="Test content", marker=None)
+        node = Node.from_contents(node_id="123", content="Test content", marker=None)
         assert isinstance(node, Bullet)
         assert node.name == "Test content"
         assert node.id == "123"
 
     def test_from_contents_task_open(self):
         """Test creating an open Task from contents."""
-        node = Node.from_contents(id="123", content="Test task", marker=" ")
+        node = Node.from_contents(node_id="123", content="Test task", marker=" ")
         assert isinstance(node, Task)
         assert node.is_completed is False
 
     def test_from_contents_task_blocked(self):
         """Test creating a blocked Task from contents."""
-        node = Node.from_contents(id="123", content="Test task", marker="!")
+        node = Node.from_contents(node_id="123", content="Test task", marker="!")
         assert isinstance(node, Task)
         assert node.is_blocked is True
 
     def test_from_contents_task_completed(self):
         """Test creating a completed Task from contents."""
-        node = Node.from_contents(id="123", content="Test task", marker="x")
+        node = Node.from_contents(node_id="123", content="Test task", marker="x")
         assert isinstance(node, Task)
         assert node.is_completed is True
 
     def test_from_contents_question(self):
         """Test creating a Question from contents."""
-        node = Node.from_contents(id="123", content="Test question", marker="?")
+        node = Node.from_contents(node_id="123", content="Test question", marker="?")
         assert isinstance(node, Question)
         assert node.is_completed is False
 
     def test_from_contents_decision(self):
         """Test creating a Decision from contents."""
-        node = Node.from_contents(id="123", content="Test decision", marker="D")
+        node = Node.from_contents(node_id="123", content="Test decision", marker="D")
         assert isinstance(node, Decision)
         assert node.is_completed is False
 
     def test_from_contents_answer(self):
         """Test creating an Answer from contents."""
-        node = Node.from_contents(id="123", content="Test artefact", marker="A")
+        node = Node.from_contents(node_id="123", content="Test artefact", marker="A")
         assert isinstance(node, Artefact)
         assert node.is_completed is True
 
     def test_from_contents_unknown_marker(self):
         """Test creating a node with an unknown marker."""
-        node = Node.from_contents(id="123", content="Test unknown", marker="Z")
+        node = Node.from_contents(node_id="123", content="Test unknown", marker="Z")
         assert isinstance(node, Node)
         assert node.is_completed is False
 

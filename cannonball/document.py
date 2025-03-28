@@ -1,19 +1,11 @@
-from typing import Optional, Union
+from typing import Union
 
 from marko import Markdown
-from marko.element import Element
-from marko.block import List, ListItem
+from marko.block import List
 from marko.md_renderer import MarkdownRenderer
 
 from cannonball.node import Node
-from cannonball.utils import (
-    get_raw_text_from_listtem,
-    extract_node_marker_and_refs,
-    extract_str_content,
-    walk_list_items,
-)
-
-import uuid
+from cannonball.utils import walk_list_items
 
 
 class Document:
@@ -32,21 +24,6 @@ class Document:
 
         self.list_to_roots = self._create_nodes()
 
-    def _convert_li_to_node(self, li: ListItem) -> Node:
-        text = get_raw_text_from_listtem(li)
-        marker, ref, ref_links = extract_node_marker_and_refs(text)
-        content = extract_str_content(text)
-
-        node_id = str(uuid.uuid4())[:8]
-        return Node.from_contents(
-            id=node_id,
-            content=content,
-            marker=marker,
-            list_item=li,
-            auto_resolve=self.auto_resolve,
-            auto_decide=self.auto_decide,
-        )
-
     def _create_nodes(self) -> dict[List, list[Node]]:
         """Converts the ListItems in each top-level List into Node objects.
 
@@ -63,7 +40,7 @@ class Document:
                 if li in item_to_node:
                     node = item_to_node[li]
                 else:
-                    node = self._convert_li_to_node(li)
+                    node = Node.from_list_item(li)
                     item_to_node[li] = node
 
                 # parent node must already exist since we're parsing a tree
@@ -116,7 +93,7 @@ class Document:
 
         for lst, roots in self.list_to_roots.items():
             for root in roots:
-                root.update_list_items()
+                root._update_list_items()
 
         markdown = self.renderer.render(self.ast)
 
