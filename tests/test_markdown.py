@@ -1,12 +1,4 @@
-from cannonball.nodes import (
-    StatefulNode,
-    Task,
-    Bullet,
-    Decision,
-    Question,
-    Artefact,
-    parse_markdown,
-)
+from cannonball import Node, Task, Bullet, Decision, Question, Artefact, parse_markdown
 import pytest
 
 
@@ -75,7 +67,7 @@ class TestParseMarkdown:
         """
         root = parse_markdown(markdown)
 
-        assert isinstance(root, StatefulNode)
+        assert isinstance(root, Node)
         # Root node was added
         assert root.name == "Root"
         assert len(root.children) == 2

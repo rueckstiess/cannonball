@@ -1,8 +1,4 @@
-from cannonball.nodes import (
-    StatefulNode,
-    Bullet,
-    parse_markdown,
-)
+from cannonball import Node, Bullet, parse_markdown
 import pytest
 
 
@@ -28,7 +24,7 @@ class TestBullet:
 
     def test_bullet_with_incomplete_child(self):
         bullet = Bullet("Test Bullet")
-        child = StatefulNode("Child Node", completed=False, parent=bullet)
+        child = Node("Child Node", completed=False, parent=bullet)
 
         assert bullet.is_completed is False
         assert bullet.is_blocked is False
@@ -37,7 +33,7 @@ class TestBullet:
 
     def test_bullet_with_blocked_child(self):
         bullet = Bullet("Test Bullet")
-        child = StatefulNode("Child Node", blocked=True, parent=bullet)
+        child = Node("Child Node", blocked=True, parent=bullet)
 
         assert bullet.is_completed is False
         assert bullet.is_blocked is True
@@ -46,8 +42,8 @@ class TestBullet:
 
     def test_bullet_with_2_incomplete_children(self):
         bullet = Bullet("Test Bullet")
-        child1 = StatefulNode("Child Node 1", completed=False, parent=bullet)
-        child2 = StatefulNode("Child Node 2", completed=True, parent=bullet)
+        child1 = Node("Child Node 1", completed=False, parent=bullet)
+        child2 = Node("Child Node 2", completed=True, parent=bullet)
 
         assert bullet.is_completed is False
         assert bullet.is_blocked is False
@@ -58,8 +54,8 @@ class TestBullet:
 
     def test_bullet_with_mixed_blocked_children(self):
         bullet = Bullet("Test Bullet")
-        child1 = StatefulNode("Child Node 1", blocked=False, parent=bullet)
-        child2 = StatefulNode("Child Node 2", blocked=True, parent=bullet)
+        child1 = Node("Child Node 1", blocked=False, parent=bullet)
+        child2 = Node("Child Node 2", blocked=True, parent=bullet)
 
         assert bullet.is_completed is False
         assert bullet.is_blocked is True
@@ -70,7 +66,7 @@ class TestBullet:
 
     def test_remove_blocked_child(self):
         bullet = Bullet("Test Bullet")
-        child = StatefulNode("Child Node", blocked=True, parent=bullet)
+        child = Node("Child Node", blocked=True, parent=bullet)
 
         assert bullet.is_completed is False
         assert bullet.is_blocked is True

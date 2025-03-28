@@ -1,10 +1,69 @@
+from textwrap import dedent
+from marko import Markdown
 from marko.block import ListItem
 from marko.element import Element
 from marko.md_renderer import MarkdownRenderer
 from typing import Optional, Callable, Tuple
 import re
+import uuid
+
+from cannonball.node import Node
 
 renderer = MarkdownRenderer()
+
+
+def parse_markdown(content: str, auto_resolve: bool = True, auto_decide: bool = False) -> "Node":
+    """Parse a markdown string into a Nodes tree.
+
+    Args:
+        markdown (str): The markdown string to parse.
+
+    Returns:
+        The root node of the parsed tree.
+    """
+    parser = Markdown()
+    ast = parser.parse(dedent(content.strip("\n")))
+
+    def _convert_li_to_node(li: Optional[ListItem]) -> Optional[Node]:
+        if li is None:
+            return None
+        text = get_raw_text_from_listtem(li)
+        marker, ref, ref_links = extract_node_marker_and_refs(text)
+        content = extract_str_content(text)
+
+        node_id = str(uuid.uuid4())[:8]
+        return Node.from_contents(
+            id=node_id,
+            content=content,
+            marker=marker,
+            auto_resolve=auto_resolve,
+            auto_decide=auto_decide,
+            list_item=li,
+        )
+
+    item_to_node = {}
+
+    for li, parent_li, level in walk_list_items(ast):
+        if li in item_to_node:
+            node = item_to_node[li]
+        else:
+            node = _convert_li_to_node(li)
+            item_to_node[li] = node
+
+        # this must already exist since we're parsing a tree
+        parent = item_to_node[parent_li] if parent_li else None
+
+        if parent:
+            node.parent = parent
+
+    # if we have multiple roots, we need to attach them to a common root
+    roots = [node for node in item_to_node.values() if node.is_root]
+    if len(roots) > 1:
+        root = Node("Root")
+        root.children = roots
+    else:
+        root = roots[0] if roots else None
+    return root
 
 
 def get_raw_text_from_listtem(li: ListItem) -> Optional[str]:

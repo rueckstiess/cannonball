@@ -1,10 +1,4 @@
-from cannonball.nodes import (
-    Node,
-    Task,
-    Decision,
-    Bullet,
-    parse_markdown,
-)
+from cannonball import Node, Task, Decision, Bullet, parse_markdown
 import pytest
 
 

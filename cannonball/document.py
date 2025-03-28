@@ -5,7 +5,7 @@ from marko.element import Element
 from marko.block import List, ListItem
 from marko.md_renderer import MarkdownRenderer
 
-from cannonball.nodes import Node
+from cannonball.node import Node
 from cannonball.utils import (
     get_raw_text_from_listtem,
     extract_node_marker_and_refs,

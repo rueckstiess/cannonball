@@ -1,76 +1,76 @@
-from cannonball.nodes import StatefulNode
+from cannonball import Node
 import pytest
 
 
 class TestStatefulNode:
     def test_stateful_node_init(self):
         """Test initializing a stateful node with different states."""
-        node = StatefulNode("Test Node")
+        node = Node("Test Node")
         assert not node.is_completed
         assert not node.is_blocked
 
-        completed_node = StatefulNode("Completed Node", completed=True)
+        completed_node = Node("Completed Node", completed=True)
         assert completed_node.is_completed
         assert not completed_node.is_blocked
 
-        blocked_node = StatefulNode("Blocked Node", blocked=True)
+        blocked_node = Node("Blocked Node", blocked=True)
         assert not blocked_node.is_completed
         assert blocked_node.is_blocked
 
         with pytest.raises(ValueError):
             # Cannot have both completed and blocked states
-            StatefulNode("Invalid Node", completed=True, blocked=True)
+            Node("Invalid Node", completed=True, blocked=True)
 
     def test_init_with_marker(self):
         """Test initializing a stateful node with a marker."""
-        node = StatefulNode("Test Node", marker="F")
+        node = Node("Test Node", marker="F")
         assert node.marker == "F"
         assert node.to_markdown() == "- [F] Test Node"
 
     def test_init_without_marker(self):
         """Test initializing a stateful node with a marker."""
-        node = StatefulNode("Test Node", marker=None)
+        node = Node("Test Node", marker=None)
         assert node.marker is None
         assert node.to_markdown() == "- Test Node"
 
     def test_add_parent_in_init(self):
         """Test adding a parent during initialization."""
-        parent = StatefulNode("Parent Node")
-        child = StatefulNode("Child Node", parent=parent)
+        parent = Node("Parent Node")
+        child = Node("Child Node", parent=parent)
 
         assert child.parent == parent
         assert child in parent.children
 
     def test_add_children_in_init(self):
         """Test adding a parent during initialization."""
-        child = StatefulNode("Child Node")
+        child = Node("Child Node")
 
-        parent = StatefulNode("Parent Node", children=[child])
+        parent = Node("Parent Node", children=[child])
 
         assert child.parent == parent
         assert child in parent.children
 
     def test_repr_method(self):
         """Test the __repr__ method of StatefulNode."""
-        node = StatefulNode("Test Node", completed=True, blocked=False)
+        node = Node("Test Node", completed=True, blocked=False)
         repr_str = repr(node)
-        expected = "StatefulNode(Test Node, completed=True, blocked=False)"
+        expected = "Node(Test Node, completed=True, blocked=False)"
         assert repr_str == expected
 
     def test_recompute_stated_not_called_without_parent_children(self, mocker):
         """Test that recompute_state is not called on initialization if there are no children."""
 
-        spy = mocker.spy(StatefulNode, "_recompute_state")
-        StatefulNode("Test Node")
+        spy = mocker.spy(Node, "_recompute_state")
+        Node("Test Node")
         assert spy.call_count == 0
 
     def test_recompute_state_called_with_children(self, mocker):
         """Test that recompute_state is called on initialization if there are children."""
 
-        class ChildNode(StatefulNode):
+        class ChildNode(Node):
             pass
 
-        class ParentNode(StatefulNode):
+        class ParentNode(Node):
             pass
 
         child_spy = mocker.spy(ChildNode, "_recompute_state")
@@ -85,10 +85,10 @@ class TestStatefulNode:
     def test_recompute_state_called_with_parent(self, mocker):
         """Test that recompute_state is called on initialization if there are children."""
 
-        class ParentNode(StatefulNode):
+        class ParentNode(Node):
             pass
 
-        class ChildNode(StatefulNode):
+        class ChildNode(Node):
             pass
 
         parent_spy = mocker.spy(ParentNode, "_recompute_state")
@@ -103,17 +103,17 @@ class TestStatefulNode:
 
     def test_parent_child_relationship(self):
         """Test parent-child relationship creation."""
-        parent = StatefulNode("Parent")
-        child = StatefulNode("Child", parent=parent)
+        parent = Node("Parent")
+        child = Node("Child", parent=parent)
 
         assert child.parent == parent
         assert child in parent.children
 
     def test_state_propagation_to_parent(self):
         """Test that state changes in children propagate to parents."""
-        parent = StatefulNode("Parent")
-        child1 = StatefulNode("Child 1", parent=parent)
-        child2 = StatefulNode("Child 2", parent=parent)
+        parent = Node("Parent")
+        child1 = Node("Child 1", parent=parent)
+        child2 = Node("Child 2", parent=parent)
 
         # Initially all nodes are incomplete
         assert not parent.is_completed
@@ -129,9 +129,9 @@ class TestStatefulNode:
 
     def test_blocked_propagation(self):
         """Test that blocked state correctly propagates to parent."""
-        parent = StatefulNode("Parent")
-        child1 = StatefulNode("Child 1", parent=parent)
-        StatefulNode("Child 2", parent=parent)
+        parent = Node("Parent")
+        child1 = Node("Child 1", parent=parent)
+        Node("Child 2", parent=parent)
 
         # Block one child
         child1._blocked = True
@@ -147,9 +147,9 @@ class TestStatefulNode:
 
     def test_post_attach_recomputation_completed(self):
         """Test state recomputation after attaching/detaching children."""
-        parent = StatefulNode("Parent")
-        child1 = StatefulNode("Child 1", completed=True)
-        child2 = StatefulNode("Child 2", completed=True)
+        parent = Node("Parent")
+        child1 = Node("Child 1", completed=True)
+        child2 = Node("Child 2", completed=True)
 
         assert not parent.is_completed
 
@@ -160,7 +160,7 @@ class TestStatefulNode:
     def test_post_detach_recomputation_blocked(self, mocker):
         """Test state recomputation after attaching/detaching children."""
 
-        class ParentNode(StatefulNode):
+        class ParentNode(Node):
             pass
 
         spy = mocker.spy(ParentNode, "_recompute_state")
@@ -170,7 +170,7 @@ class TestStatefulNode:
         assert not parent.is_completed
         assert not parent.is_blocked
 
-        child = StatefulNode("Child 1", parent=parent, blocked=True)
+        child = Node("Child 1", parent=parent, blocked=True)
         assert spy.call_count == 1
         assert not parent.is_completed
         assert parent.is_blocked
@@ -185,13 +185,13 @@ class TestStatefulNode:
 
     def test_complex_state_propagation(self):
         """Test state propagation in a complex tree."""
-        root = StatefulNode("Root")
-        branch1 = StatefulNode("Branch 1", parent=root)
-        branch2 = StatefulNode("Branch 2", parent=root)
+        root = Node("Root")
+        branch1 = Node("Branch 1", parent=root)
+        branch2 = Node("Branch 2", parent=root)
 
-        leaf1 = StatefulNode("Leaf 1", parent=branch1)
-        leaf2 = StatefulNode("Leaf 2", parent=branch1)
-        leaf3 = StatefulNode("Leaf 3", parent=branch2)
+        leaf1 = Node("Leaf 1", parent=branch1)
+        leaf2 = Node("Leaf 2", parent=branch1)
+        leaf3 = Node("Leaf 3", parent=branch2)
 
         # Initially nothing is completed
         assert not root.is_completed

@@ -1,6 +1,4 @@
-from cannonball.nodes import (
-    Task,
-)
+from cannonball import Task
 
 
 # @pytest.fixture()

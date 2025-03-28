@@ -1,12 +1,4 @@
-from cannonball.nodes import (
-    Node,
-    Bullet,
-    Artefact,
-    Question,
-    Decision,
-    Task,
-    StatefulNode,
-)
+from cannonball import Node, Bullet, Artefact, Question, Decision, Task
 
 
 class TestNode:
@@ -31,7 +23,7 @@ class TestNode:
     def test_node_repr(self):
         """Test the string representation of a Node."""
         node = Node("Test Node")
-        assert repr(node) == "Node(Test Node)"
+        assert repr(node) == "Node(Test Node, completed=False, blocked=False)"
 
     def test_from_contents_bullet(self):
         """Test creating a Bullet node from contents."""
@@ -79,7 +71,7 @@ class TestNode:
     def test_from_contents_unknown_marker(self):
         """Test creating a node with an unknown marker."""
         node = Node.from_contents(id="123", content="Test unknown", marker="Z")
-        assert isinstance(node, StatefulNode)
+        assert isinstance(node, Node)
         assert node.is_completed is False
 
     def test_find_by_name(self):

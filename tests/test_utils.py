@@ -7,8 +7,6 @@ from cannonball.utils import (
 from marko import Markdown
 from marko.block import ListItem
 from textwrap import dedent
-import io
-import sys
 
 
 class TestGetRawTextFromListItem:
