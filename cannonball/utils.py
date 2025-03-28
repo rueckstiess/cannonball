@@ -50,16 +50,6 @@ def walk_list_items(node: Element, parent=None, level=0, apply_fn: Optional[Call
             yield from walk_list_items(child, parent, level, apply_fn=apply_fn)
 
 
-def print_ast(ast: Element) -> None:
-    """Print the abstract syntax tree (AST) of a document.
-
-    Args:
-        ast (Element): The root node of the AST.
-    """
-    for item, _, level in walk_list_items(ast):
-        print("\t" * level + "- " + get_raw_text_from_listtem(item))
-
-
 def extract_node_marker_and_refs(text: str) -> Tuple[Optional[str], str, list]:
     """Extract node type, content, and reference ID from text.
 

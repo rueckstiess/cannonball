@@ -2,7 +2,8 @@ from anytree import NodeMixin, find
 from typing import Optional, Tuple
 from textwrap import dedent
 from marko import Markdown
-from marko.block import ListItem
+from marko.block import ListItem, Paragraph
+from marko.inline import RawText
 from .utils import (
     walk_list_items,
     extract_node_marker_and_refs,
@@ -38,6 +39,7 @@ def parse_markdown(content: str, auto_resolve: bool = True, auto_decide: bool = 
             marker=marker,
             auto_resolve=auto_resolve,
             auto_decide=auto_decide,
+            list_item=li,
         )
 
     item_to_node = {}
@@ -68,15 +70,43 @@ def parse_markdown(content: str, auto_resolve: bool = True, auto_decide: bool = 
 class Node(NodeMixin):
     """Base node class for all tree nodes in the productivity system."""
 
-    def __init__(self, name: str, id: Optional[str] = None, parent=None, children=None, **kwargs):
+    def __init__(
+        self,
+        name: str,
+        id: Optional[str] = None,
+        parent=None,
+        children=None,
+        list_item: Optional[ListItem] = None,
+        **kwargs,
+    ):
         self.name = name
         self.id = id
         self.parent = parent
+        if list_item:
+            assert isinstance(list_item, ListItem), "Expected a ListItem"
+            self.list_item = list_item
         if children:
             self.children = children
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
+
+    def update_list_items(self):
+        """Update the list item with the current node's attributes, ignoring its children"""
+
+        # find the RawText node in the list item (inside Paragraph)
+        # and update its text with the current node's attributes
+        if self.list_item:
+            try:
+                paragraph = next(el for el in self.list_item.children if isinstance(el, Paragraph))
+                raw_text = next(el for el in paragraph.children if isinstance(el, RawText))
+                raw_text.children = str(self)
+            except StopIteration:
+                # If no paragraph or raw text found, do nothing
+                pass
+        # Recursively update list items for all children
+        for child in self.children:
+            child.update_list_items()
 
     def to_markdown(self, indent: int | str = 4) -> str:
         """Convert the node and its children to a markdown string.
@@ -113,7 +143,9 @@ class Node(NodeMixin):
         return "\n".join(result)
 
     @staticmethod
-    def from_contents(id: str, content: str, marker: Optional[str] = None, **kwargs) -> "Node":
+    def from_contents(
+        id: str, content: str, marker: Optional[str] = None, list_item: Optional[ListItem] = None, **kwargs
+    ) -> "Node":
         """Create a node from contents."""
 
         # Values are tuples of (node class, done, blocked)
@@ -142,9 +174,11 @@ class Node(NodeMixin):
         # Get class and state, with fallback to default open, unblocked StatefulNode if not found
         cls, completed, blocked = MD_MARKER_TO_NODE.get(marker, (StatefulNode, False, False))
         if cls == StatefulNode:
-            node = StatefulNode(content, id, completed=completed, blocked=blocked, marker=marker, **kwargs)
+            node = StatefulNode(
+                content, id, completed=completed, blocked=blocked, marker=marker, list_item=list_item, **kwargs
+            )
         else:
-            node = cls(content, id, completed=completed, blocked=blocked, **kwargs)
+            node = cls(content, id, completed=completed, blocked=blocked, list_item=list_item, **kwargs)
         return node
 
     def find_by_name(self, prefix: str) -> Optional["Node"]:
@@ -172,7 +206,7 @@ class StatefulNode(Node):
         self._blocked = blocked
         self._completed = completed
         self._marker = marker
-        super().__init__(name, id, parent, children)
+        super().__init__(name, id, parent, children, **kwargs)
 
     @property
     def is_completed(self) -> bool:
