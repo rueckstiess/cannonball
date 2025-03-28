@@ -21,8 +21,7 @@ class Decision(Node):
         self._options = options
         self._auto_decide = auto_decide
 
-        super().__init__(name, id, parent, children, completed=completed, blocked=blocked, **kwargs)
-
+        super().__init__(name, id, parent, children, **kwargs)
         self._recompute_state()
 
     @property

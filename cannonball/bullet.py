@@ -13,12 +13,10 @@ class Bullet(Node):
         id: Optional[str] = None,
         parent: Optional[Node] = None,
         children: Optional[list[Node]] = None,
-        **kwargs,  # for API compatibility
+        **kwargs,
     ):
-        # Leaf bullets are completed and not blocked
-        kwargs.pop("completed", None)  # The None is the default value if key doesn't exist
-        kwargs.pop("blocked", None)
-        super().__init__(name, id, parent, children, completed=True, blocked=False, marker=None, **kwargs)
+        super().__init__(name, id, parent, children, marker=None, **kwargs)
+        self._recompute_state()
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"

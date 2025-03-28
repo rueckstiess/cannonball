@@ -15,7 +15,6 @@ class Task(Node):
         **kwargs,
     ):
         super().__init__(name, id, parent, children, completed=completed, blocked=blocked, **kwargs)
-
         self._auto_resolve: bool = auto_resolve
 
     @property
