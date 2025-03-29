@@ -7,6 +7,7 @@ from .node import Node
 from .artefact import Artefact
 from .goal import Goal
 from .experiment import Experiment
+from .ai_node import AINode
 
 # --- Register all node types and markers with the base class
 
@@ -45,3 +46,7 @@ Node.register("e", Experiment, False, False)
 Node.register("E", Experiment, True, False)
 Node.register("%", Experiment, False, True)
 
+# AI Node
+Node.register("c", AINode, False, False)
+Node.register("C", AINode, True, False)
+Node.register("@", AINode, False, True)
