@@ -64,8 +64,8 @@ class Node(NodeMixin):
 
     def __str__(self):
         if self.marker:
-            return f"[{self.marker}] {self.name}"
-        return f"{self.name}"
+            return f"- [{self.marker}] {self.name}"
+        return f"- {self.name}"
 
     @classmethod
     def register(cls, marker: Optional[str], node_class, completed: bool = False, blocked: bool = False):
@@ -92,7 +92,7 @@ class Node(NodeMixin):
             try:
                 paragraph = next(el for el in self.list_item.children if isinstance(el, Paragraph))
                 raw_text = next(el for el in paragraph.children if isinstance(el, RawText))
-                raw_text.children = str(self)
+                raw_text.children = str(self).lstrip("- ")
             except StopIteration:
                 # If no paragraph or raw text found, do nothing
                 pass
@@ -159,16 +159,6 @@ class Node(NodeMixin):
         node = node_class(content, node_id, completed=completed, blocked=blocked, list_item=list_item, **kwargs)
         return node
 
-    def to_list_item(self) -> ListItem:
-        """Convert the node to a ListItem."""
-        # Create a new ListItem with the current node's attributes
-        if self.list_item:
-            # If list_item already exists, update it
-            self._update_list_item()
-            return self.list_item
-
-        # create a new list item with a Paragraph, which contains a RawText
-
     def to_markdown(self, indent: int | str = 4) -> str:
         """Convert the node and its children to a markdown string.
 
@@ -191,7 +181,7 @@ class Node(NodeMixin):
         def _build_markdown(node, level=0):
             # Add the current node
             current_indent = indent_str * level
-            result.append(f"{current_indent}- {str(node)}")
+            result.append(f"{current_indent}{str(node)}")
 
             # Add all children recursively
             for child in node.children:

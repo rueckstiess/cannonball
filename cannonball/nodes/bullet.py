@@ -18,9 +18,6 @@ class Bullet(Node):
         super().__init__(name, id, parent, children, marker=None, **kwargs)
         self._recompute_state()
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.name})"
-
     def _leaf_state(self) -> Tuple[bool, bool]:
         """Leaf Bullets are always completed and not blocked."""
         return (True, False)

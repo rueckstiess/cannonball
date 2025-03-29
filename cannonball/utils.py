@@ -119,3 +119,20 @@ def extract_str_content(text: str) -> str:
     text = text.strip()
 
     return text
+
+
+def print_marko_ast(node: Element, level=0):
+    """Print the AST for debugging purposes.
+
+    Args:
+        node: The current node in the abstract syntax tree (AST).
+        level: The current nesting level of the node.
+    """
+    indent = " " * (level * 2)
+    print(f"{indent}{node.__class__.__name__}")
+    if hasattr(node, "children"):
+        if isinstance(node.children, str):
+            print(f"{indent}  {node.children}")
+        else:
+            for child in node.children:
+                print_marko_ast(child, level + 1)

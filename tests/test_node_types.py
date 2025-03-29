@@ -101,9 +101,9 @@ class TestBullet:
     def test_bullet_repr(self):
         """Test Bullet node representation."""
         bullet = Bullet("Test Bullet")
-        assert repr(bullet) == "Bullet(Test Bullet)"
+        assert repr(bullet) == "Bullet(Test Bullet, completed=True, blocked=False)"
 
     def test_bullet_str(self):
         """Test Bullet node string."""
         bullet = Bullet("Test Bullet")
-        assert str(bullet) == "Test Bullet"
+        assert str(bullet) == "- Test Bullet"

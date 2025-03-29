@@ -17,7 +17,7 @@ class TestDecision:
         """Test the string representation of a Decision."""
         decision = Decision("Test Decision")
         str_repr = str(decision)
-        assert str_repr == "[$] Test Decision"
+        assert str_repr == "- [$] Test Decision"
 
     def test_decision_init_blocked(self):
         decision = Decision("Decision", blocked=True)

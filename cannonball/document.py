@@ -93,7 +93,7 @@ class Document:
 
         for lst, roots in self.list_to_roots.items():
             for root in roots:
-                root._update_list_items()
+                root._update_list_item(recursive=True)
 
         markdown = self.renderer.render(self.ast)
 
