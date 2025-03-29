@@ -95,7 +95,28 @@ class Document:
             for root in roots:
                 root._update_list_item(recursive=True)
 
-        markdown = self.renderer.render(self.ast)
+        # markdown = self.renderer.render(self.ast)
+
+        markdown = []
+        for el in self.ast.children:
+            if isinstance(el, List):
+                # Ordered lists are rendered with the markdown renderer
+                if el.ordered:
+                    rendered_element = self.renderer.render(el)
+                    markdown.append(rendered_element)
+                    continue
+
+                # Render each list separately
+                roots = self.list_to_roots[el]
+                for root in roots:
+                    rendered_root = root.to_markdown(indent=indent) + "\n"
+                    markdown.append(rendered_root)
+            else:
+                # Render other elements
+                rendered_element = self.renderer.render(el)
+                markdown.append(rendered_element)
+
+        markdown = "".join(markdown)
 
         # Change the indentation of the rendered markdown
         markdown = self._change_indent(markdown, indent)

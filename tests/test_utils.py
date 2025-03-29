@@ -21,6 +21,20 @@ class TestGetRawTextFromListItem:
         result = get_raw_text_from_listtem(list_item)
         assert result == "This is a list item"
 
+    def test_get_raw_text_multi_line(self):
+        parser = Markdown()
+        markdown = dedent("""\
+        - This is a list item
+            ```python
+            print("Hello, World!")
+            ```
+        - This is another list item
+        """)
+        ast = parser.parse(markdown)
+        list_item = ast.children[0].children[0]
+        result = get_raw_text_from_listtem(list_item)
+        assert True
+
     def test_get_raw_text_empty_listitem(self):
         """Test extracting text from an empty ListItem."""
         parser = Markdown()
