@@ -1,5 +1,7 @@
 import pytest
+from textwrap import dedent
 from cannonball.document import Document
+from cannonball import Task
 
 
 class TestDocument:
@@ -77,6 +79,58 @@ class TestDocument:
 
         output = doc.to_markdown(indent=2).rstrip("\n")
         assert output == original
+
+    def test_to_markdown_with_state_propagation(self):
+        """Test to_markdown after modifying nodes."""
+
+        original = dedent("""\
+            - [ ] Task 1
+              - [x] Subtask 1
+              - [x] Subtask 2
+        """)
+        expected = dedent("""\
+            - [x] Task 1
+              - [x] Subtask 1
+              - [x] Subtask 2
+        """)
+        doc = Document(original)
+
+        # Modify the first root node
+        output = doc.to_markdown(indent=2)
+        assert output == expected
+
+    def test_to_markdown_with_added_node(self):
+        """Test to_markdown after modifying nodes."""
+
+        original = dedent("""\
+            ## My To Do List
+            
+            Tuesday, 10 October 2023:
+
+            - [ ] Task 1
+              - [x] Subtask 1
+              - [x] Subtask 2
+
+            End of list.
+        """)
+        expected = dedent("""\
+            ## My To Do List
+            
+            Tuesday, 10 October 2023:
+
+            - [ ] Task 1
+              - [x] Subtask 1
+              - [x] Subtask 2
+              - [ ] Subtask 3
+            
+            End of list.
+        """)
+        doc = Document(original)
+        # Add another subtask
+        task_1 = doc.find_by_name("Task 1")
+        Task("Subtask 3", parent=task_1)
+        output = doc.to_markdown(indent=2)
+        assert output == expected
 
     def test_empty_document(self):
         """Test handling of empty documents."""

@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Optional
 
 from marko import Markdown
 from marko.block import List
@@ -88,12 +88,25 @@ class Document:
 
         return "\n".join(result)
 
+    def find_by_name(self, name: str) -> Optional[Node]:
+        """Find a node by name or prefix, using Node.find_by_name().
+        Args:
+            name: The name or prefix to search for.
+        Returns:
+            The first node that matches the name or prefix, else None.
+        """
+        for roots in self.list_to_roots.values():
+            for root in roots:
+                if result := root.find_by_name(name):
+                    return result
+        return None
+
     def to_markdown(self, indent="\t") -> str:
         """Convert the document back to markdown."""
 
-        for lst, roots in self.list_to_roots.items():
-            for root in roots:
-                root._update_list_item(recursive=True)
+        # for lst, roots in self.list_to_roots.items():
+        #     for root in roots:
+        #         root._update_list_item(recursive=True)
 
         # markdown = self.renderer.render(self.ast)
 
